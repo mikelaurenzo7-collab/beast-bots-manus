@@ -1,6 +1,6 @@
 import type { Beast } from "../../shared/agents";
 import { invokeLLM, type Message, type ToolCall } from "../_core/llm";
-import { getDecryptedToken } from "../db";
+import { getDecryptedToken, getMemories } from "../db";
 import { getTool, getToolsForBeast, toolsToLlmSchema } from "./registry";
 import type { Tool, ToolResult } from "./types";
 
@@ -75,11 +75,29 @@ export async function executeBeast({
     { role: "user", content: message },
   ];
 
+  // Inject user memories as a system message right after the first system message.
+  const [agentMemories, globalMemories] = await Promise.all([
+    getMemories(userId, beast.slug),
+    getMemories(userId, null),
+  ]);
+  const allMemories = [...agentMemories, ...globalMemories];
+  if (allMemories.length > 0) {
+    const memoryContent =
+      "User memory (things you know about this user):\n" +
+      allMemories.map((m) => `- ${m.key}: ${m.value}`).join("\n");
+    messages.splice(1, 0, { role: "system", content: memoryContent });
+  }
+
   // If the beast has no usable tools (user hasn't connected), inject a hint so
   // the LLM can tell the user what to do rather than pretend.
   if (availableTools.length === 0 && requiredProviders.size > 0) {
     const missing = Array.from(requiredProviders).join(", ");
-    messages.splice(1, 0, {
+    // Insert after all leading system messages (memories may already be there)
+    let insertAt = 1;
+    while (insertAt < messages.length && messages[insertAt].role === "system") {
+      insertAt++;
+    }
+    messages.splice(insertAt, 0, {
       role: "system",
       content: `NOTE: The user has not connected the following required provider(s): ${missing}. Tell them to connect in Settings before you can take action.`,
     });

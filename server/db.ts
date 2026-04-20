@@ -8,6 +8,7 @@ import {
   notifications,
   oauthConnections,
   oauthState,
+  userMemories,
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -389,6 +390,61 @@ export async function clearChatHistory(userId: number, agentSlug?: string | null
         ? and(eq(chatMessages.userId, userId), isNull(chatMessages.agentSlug))
         : and(eq(chatMessages.userId, userId), eq(chatMessages.agentSlug, agentSlug));
   await db.delete(chatMessages).where(scope);
+}
+
+// ─── User Memories ────────────────────────────────────────────────────────────
+
+export async function saveMemory(
+  userId: number,
+  agentSlug: string | null,
+  key: string,
+  value: string
+) {
+  const db = await getDb();
+  if (!db) return;
+  const { isNull } = await import("drizzle-orm");
+  const slugScope = agentSlug === null ? isNull(userMemories.agentSlug) : eq(userMemories.agentSlug, agentSlug);
+  const existing = await db
+    .select()
+    .from(userMemories)
+    .where(and(eq(userMemories.userId, userId), slugScope, eq(userMemories.key, key)))
+    .limit(1);
+  if (existing[0]) {
+    await db
+      .update(userMemories)
+      .set({ value, updatedAt: new Date() })
+      .where(eq(userMemories.id, existing[0].id));
+  } else {
+    await db.insert(userMemories).values({ userId, agentSlug, key, value });
+  }
+}
+
+export async function getMemories(userId: number, agentSlug: string | null) {
+  const db = await getDb();
+  if (!db) return [];
+  const { isNull } = await import("drizzle-orm");
+  const slugScope = agentSlug === null ? isNull(userMemories.agentSlug) : eq(userMemories.agentSlug, agentSlug);
+  return db
+    .select()
+    .from(userMemories)
+    .where(and(eq(userMemories.userId, userId), slugScope))
+    .orderBy(desc(userMemories.updatedAt));
+}
+
+export async function deleteMemory(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(userMemories).where(and(eq(userMemories.id, id), eq(userMemories.userId, userId)));
+}
+
+export async function bulkSaveMemories(
+  userId: number,
+  agentSlug: string | null,
+  memories: { key: string; value: string }[]
+) {
+  for (const m of memories) {
+    await saveMemory(userId, agentSlug, m.key, m.value);
+  }
 }
 
 // ─── Notification Helpers ─────────────────────────────────────────────────────

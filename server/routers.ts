@@ -7,16 +7,19 @@ import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { executeBeast } from "./runtime";
+import { extractAndSaveMemories } from "./runtime/memory";
 import {
   clearChatHistory,
   createAgentRun,
   createNotification,
+  deleteMemory,
   deleteOAuthConnection,
   getAgentRuns,
   getAgentRunsBySlug,
   getChatHistory,
   getInstallation,
   getInstallations,
+  getMemories,
   getNotifications,
   getOAuthConnection,
   getOAuthConnections,
@@ -361,6 +364,13 @@ const activityRouter = router({
         agentSlug: input.agentSlug,
       });
 
+      // Fire-and-forget memory extraction — must not block or throw
+      extractAndSaveMemories(ctx.user.id, input.agentSlug, [
+        ...prior,
+        { role: "user", content: input.message },
+        { role: "assistant", content: reply },
+      ]).catch((err) => { console.error("[memory extraction]", err); });
+
       return {
         reply,
         runs: runs.map((r) => ({
@@ -513,6 +523,23 @@ Keep responses under 200 words. Use bullet points for lists. Be specific and act
   }),
 });
 
+// ─── Memories Router ──────────────────────────────────────────────────────────
+
+const memoriesRouter = router({
+  list: protectedProcedure
+    .input(z.object({ agentSlug: z.string().nullable().optional() }))
+    .query(async ({ ctx, input }) => {
+      return getMemories(ctx.user.id, input.agentSlug ?? null);
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await deleteMemory(input.id, ctx.user.id);
+      return { success: true };
+    }),
+});
+
 // ─── App Router ───────────────────────────────────────────────────────────────
 
 export const appRouter = router({
@@ -531,6 +558,7 @@ export const appRouter = router({
   activity: activityRouter,
   notifications: notificationsRouter,
   chat: chatRouter,
+  memories: memoriesRouter,
 });
 
 export type AppRouter = typeof appRouter;

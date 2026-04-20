@@ -118,3 +118,92 @@ const sendMessage: Tool<z.infer<typeof sendMessageInput>> = {
 
 registerTool(listChannels);
 registerTool(sendMessage);
+
+// ─── search_messages ──────────────────────────────────────────────────────────
+
+const searchMessagesInput = z.object({
+  query: z.string().min(1).describe("Search query string"),
+});
+
+type SlackMatch = {
+  text?: string;
+  channel?: { name?: string };
+  ts?: string;
+};
+
+const searchMessages: Tool<z.infer<typeof searchMessagesInput>> = {
+  name: `${PROVIDER}.search_messages`,
+  label: "Search messages",
+  provider: PROVIDER,
+  description: "Search Slack messages across all accessible channels.",
+  input: searchMessagesInput,
+  async run({ token, input }: ToolContext<z.infer<typeof searchMessagesInput>>): Promise<ToolResult> {
+    try {
+      const json = await slackGet<{ messages?: { matches?: SlackMatch[] } }>(
+        token,
+        "search.messages",
+        { query: input.query, count: "5" }
+      );
+      const matches = json.messages?.matches ?? [];
+      const summary =
+        matches.length === 0
+          ? `No messages found for "${input.query}".`
+          : `Found ${matches.length} message${matches.length === 1 ? "" : "s"} for "${input.query}".`;
+      return {
+        ok: true,
+        summary,
+        data: matches.map((m) => ({
+          text: m.text,
+          channel: m.channel?.name,
+          ts: m.ts,
+        })),
+      };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return { ok: false, summary: "Failed to search messages", error: message };
+    }
+  },
+};
+
+// ─── get_channel_history ──────────────────────────────────────────────────────
+
+const getChannelHistoryInput = z.object({
+  channel: z.string().describe("Channel ID (e.g. C01234567) — use slack.list_channels to look up IDs"),
+  limit: z.number().int().min(1).max(50).optional().describe("Number of messages (default 10)"),
+});
+
+type SlackHistoryMessage = { text?: string; user?: string; ts?: string };
+
+const getChannelHistory: Tool<z.infer<typeof getChannelHistoryInput>> = {
+  name: `${PROVIDER}.get_channel_history`,
+  label: "Get channel history",
+  provider: PROVIDER,
+  description: "Fetch the most recent messages from a Slack channel.",
+  input: getChannelHistoryInput,
+  async run({ token, input }: ToolContext<z.infer<typeof getChannelHistoryInput>>): Promise<ToolResult> {
+    try {
+      const limit = String(input.limit ?? 10);
+      const json = await slackGet<{ messages?: SlackHistoryMessage[] }>(
+        token,
+        "conversations.history",
+        { channel: input.channel, limit }
+      );
+      const messages = json.messages ?? [];
+      const summary =
+        messages.length === 0
+          ? `No messages in channel ${input.channel}.`
+          : `Retrieved ${messages.length} message${messages.length === 1 ? "" : "s"} from channel ${input.channel}.`;
+      return {
+        ok: true,
+        summary,
+        data: messages.map((m) => ({ text: m.text, user: m.user, ts: m.ts })),
+      };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return { ok: false, summary: "Failed to get channel history", error: message };
+    }
+  },
+};
+
+registerTool(searchMessages);
+registerTool(getChannelHistory);
