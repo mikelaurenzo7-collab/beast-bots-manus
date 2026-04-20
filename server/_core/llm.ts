@@ -30,6 +30,8 @@ export type Message = {
   content: MessageContent | MessageContent[];
   name?: string;
   tool_call_id?: string;
+  /** Populated on assistant messages that requested tool calls. */
+  tool_calls?: ToolCall[];
 };
 
 export type Tool = {
@@ -137,7 +139,7 @@ const normalizeContentPart = (
 };
 
 const normalizeMessage = (message: Message) => {
-  const { role, name, tool_call_id } = message;
+  const { role, name, tool_call_id, tool_calls } = message;
 
   if (role === "tool" || role === "function") {
     const content = ensureArray(message.content)
@@ -154,12 +156,17 @@ const normalizeMessage = (message: Message) => {
 
   const contentParts = ensureArray(message.content).map(normalizeContentPart);
 
+  // Preserve tool_calls on assistant messages so the provider can correlate
+  // follow-up tool-role messages back to the original function invocation.
+  const toolCallsPayload = tool_calls && tool_calls.length > 0 ? { tool_calls } : {};
+
   // If there's only text content, collapse to a single string for compatibility
   if (contentParts.length === 1 && contentParts[0].type === "text") {
     return {
       role,
       name,
       content: contentParts[0].text,
+      ...toolCallsPayload,
     };
   }
 
@@ -167,6 +174,7 @@ const normalizeMessage = (message: Message) => {
     role,
     name,
     content: contentParts,
+    ...toolCallsPayload,
   };
 };
 

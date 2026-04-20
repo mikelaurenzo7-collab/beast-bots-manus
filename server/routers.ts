@@ -6,8 +6,10 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { executeBeast } from "./runtime";
 import {
   clearChatHistory,
+  createAgentRun,
   createNotification,
   deleteOAuthConnection,
   getAgentRuns,
@@ -23,6 +25,7 @@ import {
   markNotificationsRead,
   saveChatMessage,
   uninstallAgent,
+  updateAgentRun,
   updateInstallationCustomizations,
 } from "./db";
 
@@ -168,12 +171,14 @@ const connectionsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Store the API key as the "access token" (plaintext for now — production would encrypt)
       const { upsertOAuthConnection } = await import("./db");
+      const { encryptToken } = await import("./_core/crypto");
+      const { ciphertext, iv } = encryptToken(input.apiKey);
       await upsertOAuthConnection({
         userId: ctx.user.id,
         provider: input.provider,
-        accessTokenCiphertext: input.apiKey,
+        accessTokenCiphertext: ciphertext,
+        tokenIv: iv,
         accountName: input.accountName,
         scopes: [],
       });
@@ -196,7 +201,11 @@ const activityRouter = router({
       return getAgentRunsBySlug(ctx.user.id, input.agentSlug, input.limit);
     }),
 
-  // Simulate running an agent (demo mode)
+  /**
+   * Legacy quick-run entry point kept for backwards compat with the Agent
+   * Detail "Quick Actions" chips. Dispatches to the real runtime when the
+   * beast is configured; otherwise records a demo run.
+   */
   run: protectedProcedure
     .input(
       z.object({
@@ -210,45 +219,177 @@ const activityRouter = router({
       if (!beast) throw new TRPCError({ code: "NOT_FOUND" });
 
       const installation = await getInstallation(ctx.user.id, input.agentSlug);
-      if (!installation) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Agent not installed" });
+      if (!installation) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Agent not installed" });
+      }
 
-      const { createAgentRun, updateAgentRun } = await import("./db");
-      const runResult = await createAgentRun({
+      // Real runtime path: ask the LLM to perform the action using the beast's tools.
+      if (beast.systemPrompt && beast.tools && beast.tools.length > 0) {
+        const start = Date.now();
+        try {
+          const { reply, runs, tokensUsed } = await executeBeast({
+            userId: ctx.user.id,
+            beast,
+            history: [],
+            message: input.action,
+          });
+          const allOk = runs.every((r) => r.result.ok);
+          const inserted = await createAgentRun({
+            installationId: installation.id,
+            userId: ctx.user.id,
+            agentSlug: input.agentSlug,
+            action: input.action,
+            inputSummary: input.inputSummary ?? `Quick action: ${input.action}`,
+          });
+          const runId = (inserted as unknown as { insertId: number } | undefined)?.insertId;
+          if (runId) {
+            await updateAgentRun(runId, {
+              status: allOk ? "success" : "error",
+              outputSummary: reply.slice(0, 1000),
+              tokensUsed,
+              durationMs: Date.now() - start,
+              errorMessage: allOk ? undefined : runs.find((r) => !r.result.ok)?.result.error,
+            });
+          }
+          await createNotification({
+            userId: ctx.user.id,
+            type: allOk ? "run_complete" : "run_error",
+            title: allOk ? `${beast.name} run complete` : `${beast.name} run failed`,
+            body: allOk
+              ? `${runs.length} tool call${runs.length === 1 ? "" : "s"} in ${((Date.now() - start) / 1000).toFixed(1)}s`
+              : runs.find((r) => !r.result.ok)?.result.error ?? "See activity for details.",
+            agentSlug: input.agentSlug,
+          });
+          return { success: allOk, reply, runs, durationMs: Date.now() - start };
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
+        }
+      }
+
+      // Demo fallback: record a clearly-labelled demo run so users aren't misled.
+      const inserted = await createAgentRun({
         installationId: installation.id,
         userId: ctx.user.id,
         agentSlug: input.agentSlug,
         action: input.action,
-        inputSummary: input.inputSummary,
+        inputSummary: input.inputSummary ?? `Demo: ${input.action}`,
       });
+      const runId = (inserted as unknown as { insertId: number } | undefined)?.insertId;
+      if (runId) {
+        await updateAgentRun(runId, {
+          status: "demo",
+          outputSummary: "Demo run — this beast's live handler isn't wired up yet.",
+          durationMs: 500,
+        });
+      }
+      return { success: true, reply: "Demo run recorded.", runs: [], durationMs: 500 };
+    }),
 
-      // Simulate async run
-      const startMs = Date.now();
-      const success = Math.random() > 0.1;
-      const durationMs = 800 + Math.floor(Math.random() * 2200);
-
-      if (runResult) {
-        const runId = (runResult as unknown as { insertId: number }).insertId;
-        setTimeout(async () => {
-          await updateAgentRun(runId, {
-            status: success ? "success" : "error",
-            outputSummary: success ? `${input.action} completed successfully` : undefined,
-            tokensUsed: success ? Math.floor(Math.random() * 500) + 100 : 0,
-            durationMs,
-            errorMessage: success ? undefined : "Simulated error — check your connection settings",
-          });
-          await createNotification({
-            userId: ctx.user.id,
-            type: success ? "run_complete" : "run_error",
-            title: success ? `${beast.name} run complete` : `${beast.name} run failed`,
-            body: success
-              ? `${input.action} finished in ${(durationMs / 1000).toFixed(1)}s`
-              : "Check your connection settings and try again.",
-            agentSlug: input.agentSlug,
-          });
-        }, durationMs);
+  /**
+   * Per-beast chat turn. Drives the tool-use loop, persists the user + assistant
+   * messages scoped to `agentSlug`, and writes a real agent_runs row per tool call.
+   */
+  chat: protectedProcedure
+    .input(
+      z.object({
+        agentSlug: z.string(),
+        message: z.string().min(1).max(2000),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const beast = getBeastBySlug(input.agentSlug);
+      if (!beast) throw new TRPCError({ code: "NOT_FOUND", message: "Agent not found" });
+      if (!beast.systemPrompt || !beast.tools) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `${beast.name} isn't wired for live chat yet. Try the BeastBot concierge instead.`,
+        });
+      }
+      const installation = await getInstallation(ctx.user.id, input.agentSlug);
+      if (!installation) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Install this beast first." });
       }
 
-      return { success: true, durationMs };
+      await saveChatMessage({
+        userId: ctx.user.id,
+        role: "user",
+        content: input.message,
+        agentSlug: input.agentSlug,
+      });
+
+      const priorRaw = await getChatHistory(ctx.user.id, 20, input.agentSlug);
+      const prior = priorRaw
+        .slice()
+        .reverse()
+        // Drop the just-inserted user message; executeBeast adds the current one itself.
+        .slice(0, -1)
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+      const start = Date.now();
+      const { reply, runs, tokensUsed } = await executeBeast({
+        userId: ctx.user.id,
+        beast,
+        history: prior,
+        message: input.message,
+      });
+
+      // Persist each tool call as an agent_runs row for the Activity feed.
+      for (const run of runs) {
+        const inserted = await createAgentRun({
+          installationId: installation.id,
+          userId: ctx.user.id,
+          agentSlug: input.agentSlug,
+          action: run.toolName,
+          inputSummary: JSON.stringify(run.input).slice(0, 500),
+        });
+        const runId = (inserted as unknown as { insertId: number } | undefined)?.insertId;
+        if (runId) {
+          await updateAgentRun(runId, {
+            status: run.result.ok ? "success" : "error",
+            outputSummary: run.result.summary.slice(0, 1000),
+            durationMs: run.durationMs,
+            errorMessage: run.result.ok ? undefined : run.result.error,
+          });
+        }
+      }
+
+      await saveChatMessage({
+        userId: ctx.user.id,
+        role: "assistant",
+        content: reply,
+        agentSlug: input.agentSlug,
+      });
+
+      return {
+        reply,
+        runs: runs.map((r) => ({
+          toolName: r.toolName,
+          label: r.label,
+          ok: r.result.ok,
+          summary: r.result.summary,
+          error: r.result.error,
+          durationMs: r.durationMs,
+        })),
+        tokensUsed,
+        durationMs: Date.now() - start,
+      };
+    }),
+
+  /** History for a beast's chat thread. */
+  chatHistory: protectedProcedure
+    .input(z.object({ agentSlug: z.string(), limit: z.number().default(50) }))
+    .query(async ({ ctx, input }) => {
+      const msgs = await getChatHistory(ctx.user.id, input.limit, input.agentSlug);
+      return msgs.slice().reverse();
+    }),
+
+  /** Clear a single beast's chat thread. */
+  clearChat: protectedProcedure
+    .input(z.object({ agentSlug: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await clearChatHistory(ctx.user.id, input.agentSlug);
+      return { success: true };
     }),
 });
 
@@ -309,15 +450,21 @@ const notificationsRouter = router({
 
 const chatRouter = router({
   history: protectedProcedure.query(async ({ ctx }) => {
-    const msgs = await getChatHistory(ctx.user.id, 50);
+    // Global BeastBot concierge: only the `agentSlug IS NULL` rows.
+    const msgs = await getChatHistory(ctx.user.id, 50, null);
     return msgs.reverse();
   }),
 
   send: protectedProcedure
     .input(z.object({ message: z.string().min(1).max(2000) }))
     .mutation(async ({ ctx, input }) => {
-      // Save user message
-      await saveChatMessage({ userId: ctx.user.id, role: "user", content: input.message });
+      // Save user message to the global (unscoped) concierge thread.
+      await saveChatMessage({
+        userId: ctx.user.id,
+        role: "user",
+        content: input.message,
+        agentSlug: null,
+      });
 
       // Get installed agents for context
       const installed = await getInstallations(ctx.user.id);
@@ -350,13 +497,18 @@ Keep responses under 200 words. Use bullet points for lists. Be specific and act
       const rawContent = response.choices?.[0]?.message?.content;
       const assistantContent: string = typeof rawContent === "string" ? rawContent : "I'm having trouble thinking right now. Try again!";
 
-      await saveChatMessage({ userId: ctx.user.id, role: "assistant", content: assistantContent });
+      await saveChatMessage({
+        userId: ctx.user.id,
+        role: "assistant",
+        content: assistantContent,
+        agentSlug: null,
+      });
 
       return { content: assistantContent };
     }),
 
   clear: protectedProcedure.mutation(async ({ ctx }) => {
-    await clearChatHistory(ctx.user.id);
+    await clearChatHistory(ctx.user.id, null);
     return { success: true };
   }),
 });

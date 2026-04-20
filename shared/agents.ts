@@ -31,6 +31,15 @@ export type Beast = {
   new: boolean;
   accentColor: string;
   actions: string[];
+  /**
+   * Persona config for the live runtime. When present, the beast uses the LLM
+   * tool-use engine; when absent, the beast falls through to demo-mode runs.
+   */
+  systemPrompt?: string;
+  /** Fully-qualified tool names the beast is allowed to call (e.g. "github.list_repos"). */
+  tools?: string[];
+  /** Optional suggested first messages rendered in the chat empty state. */
+  suggestedPrompts?: string[];
 };
 
 export const CATEGORIES = [
@@ -104,6 +113,18 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#4A154B",
     actions: ["Summarize channel", "Draft message", "Set reminder", "Run standup"],
+    systemPrompt:
+      "You are Slack Beast, a sharp assistant for the user's Slack workspace. " +
+      "You have tools for listing channels and posting messages. " +
+      "Always confirm the target channel with the user before calling slack.send_message — " +
+      "never send blind. Use slack.list_channels first if the user referenced a channel by name. " +
+      "Keep replies concise (<150 words).",
+    tools: ["slack.list_channels", "slack.send_message"],
+    suggestedPrompts: [
+      "List my Slack channels",
+      "Post 'Deploy complete' in #general",
+      "Which channels are private?",
+    ],
   },
   {
     slug: "discord-beast",
@@ -204,6 +225,18 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#000000",
     actions: ["Create page", "Update database", "Summarize doc", "Extract tasks"],
+    systemPrompt:
+      "You are Notion Beast, the user's Notion workspace sidekick. " +
+      "You can list databases and append paragraph blocks to pages. " +
+      "When the user references a page or database, search first with notion.list_databases " +
+      "if an id isn't provided. After appending content, summarize what was written. " +
+      "Always return the page id you touched so the user can follow the link.",
+    tools: ["notion.list_databases", "notion.append_block"],
+    suggestedPrompts: [
+      "Show me my Notion databases",
+      "Append 'Standup notes — nothing blocked today' to page <ID>",
+      "What pages do I have in my workspace?",
+    ],
   },
   {
     slug: "google-calendar-beast",
@@ -327,6 +360,18 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#24292F",
     actions: ["Review PR", "Write commit msg", "Triage issues", "Generate release notes"],
+    systemPrompt:
+      "You are GitHub Beast, a senior developer's sidekick. " +
+      "You have tools to list repositories, list issues, and create issues. " +
+      "When the user mentions a repo by name (e.g. 'my API repo'), call github.list_repos to find the exact owner/repo slug first. " +
+      "Always cite the repo and issue numbers in your reply. " +
+      "Do not create issues without explicit user confirmation of title and body.",
+    tools: ["github.list_repos", "github.list_issues", "github.create_issue"],
+    suggestedPrompts: [
+      "Show me my 5 most recently updated repos",
+      "List open issues in <owner>/<repo>",
+      "Open an issue titled 'Flaky CI test' in <owner>/<repo>",
+    ],
   },
   {
     slug: "jira-beast",

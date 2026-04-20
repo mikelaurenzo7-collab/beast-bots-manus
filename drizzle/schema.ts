@@ -78,7 +78,7 @@ export const agentRuns = mysqlTable("agent_runs", {
   userId: int("userId").notNull(),
   agentSlug: varchar("agentSlug", { length: 128 }).notNull(),
   action: varchar("action", { length: 256 }).notNull(),
-  status: mysqlEnum("status", ["running", "success", "error"]).default("running").notNull(),
+  status: mysqlEnum("status", ["running", "success", "error", "demo"]).default("running").notNull(),
   inputSummary: text("inputSummary"),
   outputSummary: text("outputSummary"),
   tokensUsed: int("tokensUsed").default(0),
@@ -103,10 +103,13 @@ export const notifications = mysqlTable("notifications", {
 
 export type Notification = typeof notifications.$inferSelect;
 
-// Chat messages for the LLM assistant
+// Chat messages for the LLM assistant.
+// `agentSlug` scopes the conversation to a single beast's chat thread;
+// null = the global BeastBot concierge chat.
 export const chatMessages = mysqlTable("chat_messages", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  agentSlug: varchar("agentSlug", { length: 128 }),
   role: mysqlEnum("role", ["user", "assistant"]).notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

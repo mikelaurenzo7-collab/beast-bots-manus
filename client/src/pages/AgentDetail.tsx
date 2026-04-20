@@ -5,9 +5,10 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { getMascotDataUrl } from "../lib/mascot";
 import NavBar from "../components/NavBar";
+import { BeastChatPanel } from "../components/BeastChatPanel";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Check, ChevronRight, ExternalLink, Lock, Play, Settings, Shield, Star, Zap, AlertCircle
+  ArrowLeft, Check, FlaskConical, Lock, MessageCircle, Play, Settings, Shield, Star, Zap, AlertCircle
 } from "lucide-react";
 
 type Customizations = Record<string, unknown>;
@@ -15,9 +16,9 @@ type Customizations = Record<string, unknown>;
 export default function AgentDetail() {
   const [, params] = useRoute("/agent/:slug");
   const slug = params?.slug ?? "";
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [customizations, setCustomizations] = useState<Customizations>({});
-  const [activeTab, setActiveTab] = useState<"overview" | "customize" | "activity">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "chat" | "customize" | "activity">("overview");
 
   const agentQuery = trpc.agents.get.useQuery({ slug }, { enabled: !!slug });
   const installQuery = trpc.installations.get.useQuery({ agentSlug: slug }, { enabled: isAuthenticated && !!slug });
@@ -58,6 +59,7 @@ export default function AgentDetail() {
   const installation = installQuery.data;
   const isInstalled = !!installation;
   const hasConnection = !!connectionQuery.data;
+  const isLive = !!beast?.systemPrompt && !!beast?.tools && beast.tools.length > 0;
 
   if (agentQuery.isLoading) {
     return (
@@ -228,17 +230,21 @@ export default function AgentDetail() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b-2 border-border">
-          {(["overview", "customize", "activity"] as const).map((tab) => (
+          {(["overview", ...(isLive ? (["chat"] as const) : []), "customize", "activity"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2.5 text-sm font-semibold capitalize border-b-2 -mb-0.5 transition-colors ${
+              className={`px-4 py-2.5 text-sm font-semibold capitalize border-b-2 -mb-0.5 transition-colors flex items-center gap-1.5 ${
                 activeTab === tab
                   ? "border-foreground text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
+              {tab === "chat" && <MessageCircle className="w-3.5 h-3.5" />}
               {tab}
+              {tab === "chat" && (
+                <span className="ml-1 text-[10px] font-bold bg-[#2D9E5A] text-white px-1.5 py-0.5 rounded-full">LIVE</span>
+              )}
             </button>
           ))}
         </div>
@@ -292,6 +298,12 @@ export default function AgentDetail() {
                 <h2 className="font-display font-bold text-base text-foreground mb-4 flex items-center gap-2">
                   <Play className="w-4 h-4 text-[#E8541A]" />
                   Quick Actions
+                  {!isLive && (
+                    <span className="ml-2 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border flex items-center gap-1">
+                      <FlaskConical className="w-3 h-3" />
+                      Demo
+                    </span>
+                  )}
                 </h2>
                 <div className="flex flex-wrap gap-3">
                   {beast.actions.map((action) => (
@@ -306,9 +318,25 @@ export default function AgentDetail() {
                     </button>
                   ))}
                 </div>
+                {isLive && (
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Or use the <button onClick={() => setActiveTab("chat")} className="font-semibold text-foreground underline">Chat</button> tab for multi-step workflows.
+                  </p>
+                )}
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === "chat" && isLive && (
+          <BeastChatPanel
+            agentSlug={beast.slug}
+            beastName={beast.name}
+            suggestedPrompts={beast.suggestedPrompts ?? []}
+            isInstalled={isInstalled}
+            hasConnection={hasConnection || !beast.requiresOAuth}
+            platformName={beast.platform}
+          />
         )}
 
         {activeTab === "customize" && (
@@ -432,6 +460,7 @@ export default function AgentDetail() {
                     <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                       run.status === "success" ? "bg-[#2D9E5A]" :
                       run.status === "error" ? "bg-destructive" :
+                      run.status === "demo" ? "bg-muted-foreground" :
                       "bg-[#F5C842] animate-pulse"
                     }`} />
                     <div className="flex-1 min-w-0">
@@ -444,6 +473,7 @@ export default function AgentDetail() {
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                       run.status === "success" ? "bg-[#2D9E5A]/20 text-[#2D9E5A]" :
                       run.status === "error" ? "bg-destructive/20 text-destructive" :
+                      run.status === "demo" ? "bg-muted text-muted-foreground" :
                       "bg-[#F5C842]/20 text-[#F5C842]"
                     }`}>
                       {run.status}
