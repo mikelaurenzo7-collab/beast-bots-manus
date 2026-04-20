@@ -4,34 +4,79 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { useAuth } from "./_core/hooks/useAuth";
+import { getLoginUrl } from "./const";
 import Home from "./pages/Home";
+import Marketplace from "./pages/Marketplace";
+import AgentDetail from "./pages/AgentDetail";
+import Dashboard from "./pages/Dashboard";
+import Settings from "./pages/Settings";
+import Activity from "./pages/Activity";
+import Notifications from "./pages/Notifications";
+import Chat from "./pages/Chat";
+
+/** Wraps a page component and redirects to login if the user is not authenticated. */
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    // Show a minimal cream-paper skeleton while auth state resolves
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl border-2 border-border bg-card shimmer" />
+          <div className="w-32 h-3 rounded-full bg-secondary shimmer" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    // Redirect to Manus OAuth login, returning to the current page after auth
+    window.location.href = getLoginUrl();
+    return null;
+  }
+
+  return <Component />;
+}
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
+      {/* Public routes */}
+      <Route path="/" component={Home} />
+      <Route path="/marketplace" component={Marketplace} />
+      <Route path="/agent/:slug" component={AgentDetail} />
+
+      {/* Protected routes — require Manus OAuth */}
+      <Route path="/dashboard">
+        {() => <ProtectedRoute component={Dashboard} />}
+      </Route>
+      <Route path="/settings">
+        {() => <ProtectedRoute component={Settings} />}
+      </Route>
+      <Route path="/activity">
+        {() => <ProtectedRoute component={Activity} />}
+      </Route>
+      <Route path="/notifications">
+        {() => <ProtectedRoute component={Notifications} />}
+      </Route>
+      <Route path="/chat">
+        {() => <ProtectedRoute component={Chat} />}
+      </Route>
+
+      <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          <Toaster />
+          <Toaster richColors position="top-right" />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

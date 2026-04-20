@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS `agent_runs` (`id` int AUTO_INCREMENT NOT NULL, `installationId` int NOT NULL, `userId` int NOT NULL, `agentSlug` varchar(128) NOT NULL, `action` varchar(256) NOT NULL, `status` enum('running','success','error') NOT NULL DEFAULT 'running', `inputSummary` text, `outputSummary` text, `tokensUsed` int DEFAULT 0, `durationMs` int DEFAULT 0, `errorMessage` text, `createdAt` timestamp NOT NULL DEFAULT (now()), CONSTRAINT `agent_runs_id` PRIMARY KEY(`id`))",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2pd8iEvgor3DQ5X.root --database 8eLdTURA5qP9yzxNMhD5Qk --execute CREATE TABLE IF NOT EXISTS `agent_runs` (`id` int AUTO_INCREMENT NOT NULL, `installationId` int NOT NULL, `userId` int NOT NULL, `agentSlug` varchar(128) NOT NULL, `action` varchar(256) NOT NULL, `status` enum('running','success','error') NOT NULL DEFAULT 'running', `inputSummary` text, `outputSummary` text, `tokensUsed` int DEFAULT 0, `durationMs` int DEFAULT 0, `errorMessage` text, `createdAt` timestamp NOT NULL DEFAULT (now()), CONSTRAINT `agent_runs_id` PRIMARY KEY(`id`))",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 53
+}
