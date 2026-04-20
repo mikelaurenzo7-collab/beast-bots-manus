@@ -36,7 +36,8 @@ export async function extractAndSaveMemories(
     );
     if (memories.length === 0) return;
     await bulkSaveMemories(userId, agentSlug, memories);
-  } catch {
+  } catch (error) {
     // Memory extraction must never throw or fail the main chat turn
+    console.error("[memory extraction]", error);
   }
 }
