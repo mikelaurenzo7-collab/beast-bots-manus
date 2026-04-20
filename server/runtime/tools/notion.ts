@@ -121,3 +121,108 @@ const appendBlock: Tool<z.infer<typeof appendBlockInput>> = {
 
 registerTool(listDatabases);
 registerTool(appendBlock);
+
+// ─── create_page ──────────────────────────────────────────────────────────────
+
+const createPageInput = z.object({
+  database_id: z.string().describe("Notion database ID to create the page in"),
+  title: z.string().min(1).describe("Page title"),
+  content: z.string().optional().describe("Optional paragraph content for the page body"),
+});
+
+type CreatedPage = { id: string; url?: string };
+
+const createPage: Tool<z.infer<typeof createPageInput>> = {
+  name: `${PROVIDER}.create_page`,
+  label: "Create page",
+  provider: PROVIDER,
+  description: "Create a new page in a Notion database, optionally with a paragraph body.",
+  input: createPageInput,
+  async run({ token, input }: ToolContext<z.infer<typeof createPageInput>>): Promise<ToolResult> {
+    try {
+      const children = input.content
+        ? [
+            {
+              object: "block",
+              type: "paragraph",
+              paragraph: {
+                rich_text: [{ type: "text", text: { content: input.content } }],
+              },
+            },
+          ]
+        : [];
+      const page = await notion<CreatedPage>(token, "/pages", {
+        method: "POST",
+        body: JSON.stringify({
+          parent: { database_id: input.database_id },
+          properties: {
+            title: {
+              title: [{ type: "text", text: { content: input.title } }],
+            },
+          },
+          children,
+        }),
+      });
+      return {
+        ok: true,
+        summary: `Created page "${input.title}" in database ${input.database_id}`,
+        data: { id: page.id, url: page.url },
+      };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return { ok: false, summary: "Failed to create page", error: message };
+    }
+  },
+};
+
+// ─── search ───────────────────────────────────────────────────────────────────
+
+const notionSearchInput = z.object({
+  query: z.string().min(1).describe("Search query"),
+});
+
+type NotionSearchResult = {
+  id: string;
+  object: string;
+  url?: string;
+  title?: { plain_text: string }[];
+  properties?: { title?: { title?: { plain_text: string }[] } };
+};
+
+const notionSearch: Tool<z.infer<typeof notionSearchInput>> = {
+  name: `${PROVIDER}.search`,
+  label: "Search Notion",
+  provider: PROVIDER,
+  description: "Search for pages and databases in Notion by keyword.",
+  input: notionSearchInput,
+  async run({ token, input }: ToolContext<z.infer<typeof notionSearchInput>>): Promise<ToolResult> {
+    try {
+      const json = await notion<{ results: NotionSearchResult[] }>(token, "/search", {
+        method: "POST",
+        body: JSON.stringify({ query: input.query, page_size: 5 }),
+      });
+      const results = json.results ?? [];
+      const mapped = results.map((r) => {
+        const titleArr =
+          r.title ??
+          r.properties?.title?.title ??
+          [];
+        const title = titleArr[0]?.plain_text ?? "(untitled)";
+        return { id: r.id, type: r.object, title, url: r.url };
+      });
+      const summary =
+        mapped.length === 0
+          ? `No results for "${input.query}".`
+          : `Found ${mapped.length} result${mapped.length === 1 ? "" : "s"} for "${input.query}": ${mapped
+              .map((r) => r.title)
+              .join(", ")}`;
+      return { ok: true, summary, data: mapped };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return { ok: false, summary: "Failed to search Notion", error: message };
+    }
+  },
+};
+
+registerTool(createPage);
+registerTool(notionSearch);

@@ -158,3 +158,57 @@ const createIssue: Tool<z.infer<typeof createIssueInput>> = {
 registerTool(listRepos);
 registerTool(listIssues);
 registerTool(createIssue);
+
+// ─── search_repos ─────────────────────────────────────────────────────────────
+
+const searchReposInput = z.object({
+  query: z.string().min(1).describe("Search query (e.g. 'react starter')"),
+  limit: z.number().int().min(1).max(30).optional().describe("Max results (default 10)"),
+});
+
+type SearchRepoItem = {
+  full_name: string;
+  description: string | null;
+  stargazers_count: number;
+  html_url: string;
+};
+
+const searchRepos: Tool<z.infer<typeof searchReposInput>> = {
+  name: `${PROVIDER}.search_repos`,
+  label: "Search repositories",
+  provider: PROVIDER,
+  description: "Search GitHub repositories by keyword.",
+  input: searchReposInput,
+  async run({ token, input }: ToolContext<z.infer<typeof searchReposInput>>): Promise<ToolResult> {
+    try {
+      const limit = input.limit ?? 10;
+      const data = await gh<{ items: SearchRepoItem[] }>(
+        token,
+        `/search/repositories?q=${encodeURIComponent(input.query)}&per_page=${limit}`
+      );
+      const items = data.items ?? [];
+      const summary =
+        items.length === 0
+          ? `No repositories found for "${input.query}".`
+          : `Found ${items.length} repo${items.length === 1 ? "" : "s"} for "${input.query}": ${items
+              .slice(0, 5)
+              .map((r) => r.full_name)
+              .join(", ")}${items.length > 5 ? ", …" : ""}`;
+      return {
+        ok: true,
+        summary,
+        data: items.map((r) => ({
+          name: r.full_name,
+          description: r.description,
+          stars: r.stargazers_count,
+          url: r.html_url,
+        })),
+      };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return { ok: false, summary: "Failed to search repositories", error: message };
+    }
+  },
+};
+
+registerTool(searchRepos);

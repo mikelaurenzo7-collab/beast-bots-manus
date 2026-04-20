@@ -116,3 +116,16 @@ export const chatMessages = mysqlTable("chat_messages", {
 });
 
 export type ChatMessage = typeof chatMessages.$inferSelect;
+
+// User memories — facts/preferences learned from conversations
+export const userMemories = mysqlTable("user_memories", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  agentSlug: varchar("agentSlug", { length: 128 }),
+  key: varchar("key", { length: 128 }).notNull(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserMemory = typeof userMemories.$inferSelect;
+export type InsertUserMemory = typeof userMemories.$inferInsert;

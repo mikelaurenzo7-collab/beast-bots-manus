@@ -3,6 +3,8 @@
 import "./tools/github";
 import "./tools/slack";
 import "./tools/notion";
+import "./tools/google";
+import "./tools/linear";
 
 export { getTool, getToolsForBeast, listToolNames, toolsToLlmSchema } from "./registry";
 export { executeBeast } from "./execute";

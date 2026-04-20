@@ -8,7 +8,7 @@ import NavBar from "../components/NavBar";
 import { BeastChatPanel } from "../components/BeastChatPanel";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Check, FlaskConical, Lock, MessageCircle, Play, Settings, Shield, Star, Zap, AlertCircle
+  ArrowLeft, Brain, Check, FlaskConical, Lock, MessageCircle, Play, Settings, Shield, Star, X, Zap, AlertCircle
 } from "lucide-react";
 
 type Customizations = Record<string, unknown>;
@@ -18,7 +18,7 @@ export default function AgentDetail() {
   const slug = params?.slug ?? "";
   const { isAuthenticated } = useAuth();
   const [customizations, setCustomizations] = useState<Customizations>({});
-  const [activeTab, setActiveTab] = useState<"overview" | "chat" | "customize" | "activity">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "chat" | "customize" | "activity" | "memory">("overview");
 
   const agentQuery = trpc.agents.get.useQuery({ slug }, { enabled: !!slug });
   const installQuery = trpc.installations.get.useQuery({ agentSlug: slug }, { enabled: isAuthenticated && !!slug });
@@ -30,6 +30,17 @@ export default function AgentDetail() {
     { agentSlug: slug, limit: 10 },
     { enabled: isAuthenticated && !!slug && activeTab === "activity" }
   );
+
+  const memoriesQuery = trpc.memories.list.useQuery(
+    { agentSlug: slug },
+    { enabled: isAuthenticated && !!slug && activeTab === "memory" }
+  );
+  const deleteMemoryMutation = trpc.memories.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Memory cleared");
+      memoriesQuery.refetch();
+    },
+  });
 
   const installMutation = trpc.installations.install.useMutation({
     onSuccess: () => {
@@ -230,7 +241,7 @@ export default function AgentDetail() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b-2 border-border">
-          {(["overview", ...(isLive ? (["chat"] as const) : []), "customize", "activity"] as const).map((tab) => (
+          {(["overview", ...(isLive ? (["chat"] as const) : []), "customize", "activity", ...(isInstalled ? (["memory"] as const) : [])] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -241,6 +252,7 @@ export default function AgentDetail() {
               }`}
             >
               {tab === "chat" && <MessageCircle className="w-3.5 h-3.5" />}
+              {tab === "memory" && <Brain className="w-3.5 h-3.5" />}
               {tab}
               {tab === "chat" && (
                 <span className="ml-1 text-[10px] font-bold bg-[#2D9E5A] text-white px-1.5 py-0.5 rounded-full">LIVE</span>
@@ -478,6 +490,54 @@ export default function AgentDetail() {
                     }`}>
                       {run.status}
                     </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "memory" && (
+          <div className="pop-card bg-card rounded-xl p-6">
+            <div className="mb-6">
+              <h2 className="font-display font-bold text-lg text-foreground flex items-center gap-2">
+                <Brain className="w-5 h-5 text-[#1A6EE8]" />
+                What {beast.name} knows about you
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">Learned automatically from your conversations</p>
+            </div>
+            {memoriesQuery.isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="shimmer h-14 rounded-lg border border-border" />
+                ))}
+              </div>
+            ) : (memoriesQuery.data ?? []).length === 0 ? (
+              <div className="text-center py-12">
+                <Brain className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+                <p className="text-sm text-muted-foreground">
+                  No memories yet — start chatting and {beast.name} will learn your preferences
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {(memoriesQuery.data ?? []).map((memory: { id: number; key: string; value: string }) => (
+                  <div
+                    key={memory.id}
+                    className="flex items-start gap-3 p-4 bg-secondary rounded-lg border border-border"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{memory.key}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">{memory.value}</p>
+                    </div>
+                    <button
+                      onClick={() => deleteMemoryMutation.mutate({ id: memory.id })}
+                      disabled={deleteMemoryMutation.isPending}
+                      className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0 mt-0.5"
+                      title="Delete memory"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
               </div>

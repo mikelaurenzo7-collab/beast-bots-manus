@@ -87,6 +87,14 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#EA4335",
     actions: ["Summarize inbox", "Draft reply", "Create filter", "Unsubscribe", "Schedule email"],
+    systemPrompt:
+      "You are Gmail Beast, an AI-powered email assistant. You can list recent emails and search your inbox. Keep replies concise and always summarize findings clearly.",
+    tools: ["google.list_emails"],
+    suggestedPrompts: [
+      "Show my recent emails",
+      "Search for emails from boss@example.com",
+      "Find unread emails",
+    ],
   },
   {
     slug: "slack-beast",
@@ -115,15 +123,16 @@ export const BEASTS: Beast[] = [
     actions: ["Summarize channel", "Draft message", "Set reminder", "Run standup"],
     systemPrompt:
       "You are Slack Beast, a sharp assistant for the user's Slack workspace. " +
-      "You have tools for listing channels and posting messages. " +
+      "You have tools for listing channels, posting messages, searching messages, and fetching channel history. " +
       "Always confirm the target channel with the user before calling slack.send_message — " +
       "never send blind. Use slack.list_channels first if the user referenced a channel by name. " +
       "Keep replies concise (<150 words).",
-    tools: ["slack.list_channels", "slack.send_message"],
+    tools: ["slack.list_channels", "slack.send_message", "slack.search_messages", "slack.get_channel_history"],
     suggestedPrompts: [
       "List my Slack channels",
       "Post 'Deploy complete' in #general",
-      "Which channels are private?",
+      "Search messages about the release",
+      "Show recent messages in #dev",
     ],
   },
   {
@@ -226,16 +235,12 @@ export const BEASTS: Beast[] = [
     accentColor: "#000000",
     actions: ["Create page", "Update database", "Summarize doc", "Extract tasks"],
     systemPrompt:
-      "You are Notion Beast, the user's Notion workspace sidekick. " +
-      "You can list databases and append paragraph blocks to pages. " +
-      "When the user references a page or database, search first with notion.list_databases " +
-      "if an id isn't provided. After appending content, summarize what was written. " +
-      "Always return the page id you touched so the user can follow the link.",
-    tools: ["notion.list_databases", "notion.append_block"],
+      "You are Notion Beast, a productivity powerhouse for your Notion workspace. You can list databases, search pages, create new pages. Always confirm with the user before creating content. Keep replies under 200 words.",
+    tools: ["notion.list_databases", "notion.search", "notion.create_page"],
     suggestedPrompts: [
-      "Show me my Notion databases",
-      "Append 'Standup notes — nothing blocked today' to page <ID>",
-      "What pages do I have in my workspace?",
+      "List my Notion databases",
+      "Search for my project notes",
+      "Create a new task in my Tasks database",
     ],
   },
   {
@@ -264,6 +269,14 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#4285F4",
     actions: ["Schedule meeting", "Block focus time", "Send reminder", "Prep brief"],
+    systemPrompt:
+      "You are Calendar Beast, an AI-powered Google Calendar assistant. You can list upcoming events and create new calendar events. Always confirm event details (title, start time, end time) with the user before creating. Keep replies under 200 words.",
+    tools: ["google.list_events", "google.create_event"],
+    suggestedPrompts: [
+      "What's on my calendar this week?",
+      "Schedule a team standup tomorrow at 9am",
+      "Show my next 5 upcoming events",
+    ],
   },
   {
     slug: "todoist-beast",
@@ -332,6 +345,14 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#5E6AD2",
     actions: ["Triage issue", "Plan sprint", "Update roadmap", "Track velocity"],
+    systemPrompt:
+      "You are Linear Beast, an engineering project management assistant. You can list teams, list active issues, and create new issues in Linear. Always confirm the team and issue details before creating. Keep replies under 200 words.",
+    tools: ["linear.list_teams", "linear.list_issues", "linear.create_issue"],
+    suggestedPrompts: [
+      "Show my active Linear issues",
+      "List all teams in my workspace",
+      "Create a bug issue in my team",
+    ],
   },
 
   // ─── DEVELOPMENT ─────────────────────────────────────────────────────────────
@@ -361,16 +382,13 @@ export const BEASTS: Beast[] = [
     accentColor: "#24292F",
     actions: ["Review PR", "Write commit msg", "Triage issues", "Generate release notes"],
     systemPrompt:
-      "You are GitHub Beast, a senior developer's sidekick. " +
-      "You have tools to list repositories, list issues, and create issues. " +
-      "When the user mentions a repo by name (e.g. 'my API repo'), call github.list_repos to find the exact owner/repo slug first. " +
-      "Always cite the repo and issue numbers in your reply. " +
-      "Do not create issues without explicit user confirmation of title and body.",
-    tools: ["github.list_repos", "github.list_issues", "github.create_issue"],
+      "You are GitHub Beast, an expert GitHub assistant. You can list repos, issues, search repos, and create issues. Always confirm the repo owner/name before creating anything. Keep replies under 200 words.",
+    tools: ["github.list_repos", "github.list_issues", "github.create_issue", "github.search_repos"],
     suggestedPrompts: [
-      "Show me my 5 most recently updated repos",
-      "List open issues in <owner>/<repo>",
-      "Open an issue titled 'Flaky CI test' in <owner>/<repo>",
+      "List my repositories",
+      "Show open issues in owner/repo",
+      "Create a bug report in owner/repo",
+      "Search for React starter repos",
     ],
   },
   {
