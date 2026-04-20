@@ -133,6 +133,22 @@ export async function deleteOAuthConnection(userId: number, provider: string) {
     .where(and(eq(oauthConnections.userId, userId), eq(oauthConnections.provider, provider)));
 }
 
+/**
+ * Fetch a decrypted access token for the given user/provider.
+ * Returns null if the connection doesn't exist.
+ * Tolerates legacy rows with a null `tokenIv` (read through as plaintext).
+ */
+export async function getDecryptedToken(
+  userId: number,
+  provider: string
+): Promise<{ token: string; connection: NonNullable<Awaited<ReturnType<typeof getOAuthConnection>>> } | null> {
+  const connection = await getOAuthConnection(userId, provider);
+  if (!connection || !connection.accessTokenCiphertext) return null;
+  const { decryptToken } = await import("./_core/crypto");
+  const token = decryptToken(connection.accessTokenCiphertext, connection.tokenIv);
+  return { token, connection };
+}
+
 // ─── OAuth State ──────────────────────────────────────────────────────────────
 
 export async function createOAuthState(data: {
@@ -242,7 +258,7 @@ export async function createAgentRun(data: {
 export async function updateAgentRun(
   id: number,
   data: {
-    status: "success" | "error";
+    status: "success" | "error" | "demo";
     outputSummary?: string;
     tokensUsed?: number;
     durationMs?: number;
@@ -319,13 +335,29 @@ export async function getUnreadCount(userId: number) {
 
 // ─── Chat Messages ────────────────────────────────────────────────────────────
 
-export async function getChatHistory(userId: number, limit = 50) {
+/**
+ * Return chat history for a user, optionally scoped to a specific beast thread.
+ * Pass `agentSlug: null` explicitly to fetch the global BeastBot concierge thread.
+ * Omit `agentSlug` to fetch everything.
+ */
+export async function getChatHistory(
+  userId: number,
+  limit = 50,
+  agentSlug?: string | null
+) {
   const db = await getDb();
   if (!db) return [];
+  const { isNull } = await import("drizzle-orm");
+  const scope =
+    agentSlug === undefined
+      ? eq(chatMessages.userId, userId)
+      : agentSlug === null
+        ? and(eq(chatMessages.userId, userId), isNull(chatMessages.agentSlug))
+        : and(eq(chatMessages.userId, userId), eq(chatMessages.agentSlug, agentSlug));
   return db
     .select()
     .from(chatMessages)
-    .where(eq(chatMessages.userId, userId))
+    .where(scope)
     .orderBy(desc(chatMessages.createdAt))
     .limit(limit);
 }
@@ -334,16 +366,29 @@ export async function saveChatMessage(data: {
   userId: number;
   role: "user" | "assistant";
   content: string;
+  agentSlug?: string | null;
 }) {
   const db = await getDb();
   if (!db) return;
-  await db.insert(chatMessages).values(data);
+  await db.insert(chatMessages).values({
+    userId: data.userId,
+    role: data.role,
+    content: data.content,
+    agentSlug: data.agentSlug ?? null,
+  });
 }
 
-export async function clearChatHistory(userId: number) {
+export async function clearChatHistory(userId: number, agentSlug?: string | null) {
   const db = await getDb();
   if (!db) return;
-  await db.delete(chatMessages).where(eq(chatMessages.userId, userId));
+  const { isNull } = await import("drizzle-orm");
+  const scope =
+    agentSlug === undefined
+      ? eq(chatMessages.userId, userId)
+      : agentSlug === null
+        ? and(eq(chatMessages.userId, userId), isNull(chatMessages.agentSlug))
+        : and(eq(chatMessages.userId, userId), eq(chatMessages.agentSlug, agentSlug));
+  await db.delete(chatMessages).where(scope);
 }
 
 // ─── Notification Helpers ─────────────────────────────────────────────────────

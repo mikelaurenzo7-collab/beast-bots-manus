@@ -7,4 +7,8 @@ export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  // Used by server/_core/crypto.ts to encrypt OAuth tokens & API keys at rest.
+  // Generate with: openssl rand -hex 32. Falls back to the cookie secret for dev.
+  encryptionKey:
+    process.env.ENCRYPTION_KEY ?? process.env.JWT_SECRET ?? "",
 };

@@ -3,9 +3,9 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import NavBar from "../components/NavBar";
-import { Activity as ActivityIcon, CheckCircle, XCircle, Clock, Filter } from "lucide-react";
+import { Activity as ActivityIcon, CheckCircle, XCircle, Clock, Filter, FlaskConical } from "lucide-react";
 
-type StatusFilter = "all" | "success" | "error" | "running";
+type StatusFilter = "all" | "success" | "error" | "running" | "demo";
 
 export default function Activity() {
   const { isAuthenticated, loading } = useAuth();
@@ -52,6 +52,7 @@ export default function Activity() {
     success: allRuns.filter((r: any) => r.status === "success").length,
     error: allRuns.filter((r: any) => r.status === "error").length,
     running: allRuns.filter((r: any) => r.status === "running").length,
+    demo: allRuns.filter((r: any) => r.status === "demo").length,
   };
 
   return (
@@ -86,7 +87,7 @@ export default function Activity() {
         {/* Filters */}
         <div className="flex gap-2 mb-4">
           <Filter className="w-4 h-4 text-muted-foreground self-center" />
-          {(["all", "success", "error", "running"] as StatusFilter[]).map((s) => (
+          {(["all", "success", "error", "running", "demo"] as StatusFilter[]).map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -126,6 +127,8 @@ export default function Activity() {
                     <CheckCircle className="w-5 h-5 text-[#2D9E5A]" />
                   ) : run.status === "error" ? (
                     <XCircle className="w-5 h-5 text-destructive" />
+                  ) : run.status === "demo" ? (
+                    <FlaskConical className="w-5 h-5 text-muted-foreground" />
                   ) : (
                     <Clock className="w-5 h-5 text-[#F5C842] animate-pulse" />
                   )}
@@ -137,9 +140,14 @@ export default function Activity() {
                     <p className="text-sm font-semibold text-foreground">{run.agentSlug}</p>
                     <span className="text-xs text-muted-foreground">·</span>
                     <p className="text-xs text-muted-foreground truncate">{run.action}</p>
+                    {run.status === "demo" && (
+                      <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                        Demo
+                      </span>
+                    )}
                   </div>
-                  {run.resultSummary && (
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{run.resultSummary}</p>
+                  {run.outputSummary && (
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{run.outputSummary}</p>
                   )}
                   {run.errorMessage && (
                     <p className="text-xs text-destructive mt-0.5 truncate">{run.errorMessage}</p>
