@@ -109,6 +109,121 @@ registerTool({
   },
 });
 
+// ─── Expanded capabilities ─────────────────────────────────────────────────
+
+registerTool({
+  name: "pinterest.list_pins",
+  label: "List all pins",
+  provider: "pinterest",
+  description:
+    "Paginate through the user's pins. Returns id, board, link, title. Use to find pin ids for analytics or cleanup.",
+  input: z.object({
+    limit: z.number().int().min(1).max(100).optional(),
+    bookmark: z.string().optional().describe("Cursor for the next page"),
+  }),
+  async run({ token, input }) {
+    const params = new URLSearchParams({ page_size: String(input.limit ?? 25) });
+    if (input.bookmark) params.set("bookmark", input.bookmark);
+    const res = await fetch(`${BASE}/pins?${params}`, { headers: headers(token) });
+    if (!res.ok) return pinError(res);
+    const data = (await res.json()) as {
+      items: {
+        id: string;
+        board_id?: string;
+        title?: string;
+        link?: string;
+        created_at?: string;
+      }[];
+      bookmark?: string;
+    };
+    return {
+      ok: true,
+      summary: `${data.items.length} pins`,
+      data: {
+        pins: data.items.map((p) => ({
+          id: p.id,
+          boardId: p.board_id,
+          title: p.title,
+          link: p.link,
+          createdAt: p.created_at,
+        })),
+        nextBookmark: data.bookmark,
+      },
+    };
+  },
+});
+
+registerTool({
+  name: "pinterest.pin_analytics",
+  label: "Pin analytics",
+  provider: "pinterest",
+  description:
+    "Per-pin analytics (impressions, saves, outbound clicks) for a date range. Use to compare performance of specific pins.",
+  input: z.object({
+    pinId: z.string(),
+    days: z.number().int().min(7).max(90).optional(),
+  }),
+  async run({ token, input }) {
+    const end = new Date();
+    const start = new Date(end.getTime() - (input.days ?? 30) * 86_400_000);
+    const params = new URLSearchParams({
+      start_date: start.toISOString().slice(0, 10),
+      end_date: end.toISOString().slice(0, 10),
+      metric_types: "IMPRESSION,SAVE,OUTBOUND_CLICK,PIN_CLICK",
+    });
+    const res = await fetch(
+      `${BASE}/pins/${encodeURIComponent(input.pinId)}/analytics?${params}`,
+      { headers: headers(token) }
+    );
+    if (!res.ok) return pinError(res);
+    const data = (await res.json()) as Record<string, { summary_metrics?: Record<string, number> }>;
+    const all = data.ALL?.summary_metrics ?? {};
+    return {
+      ok: true,
+      summary: `${all.IMPRESSION ?? 0} impressions, ${all.OUTBOUND_CLICK ?? 0} clicks`,
+      data: {
+        pinId: input.pinId,
+        days: input.days ?? 30,
+        impressions: all.IMPRESSION ?? 0,
+        saves: all.SAVE ?? 0,
+        outboundClicks: all.OUTBOUND_CLICK ?? 0,
+        pinClicks: all.PIN_CLICK ?? 0,
+      },
+    };
+  },
+});
+
+registerTool({
+  name: "pinterest.create_board",
+  label: "Create Pinterest board",
+  provider: "pinterest",
+  description:
+    "Create a new Pinterest board. Use when the user needs to organize pins into a new collection (e.g. 'Winter Collection 2025').",
+  input: z.object({
+    name: z.string().min(1).max(180),
+    description: z.string().max(500).optional(),
+    privacy: z.enum(["PUBLIC", "PROTECTED", "SECRET"]).optional(),
+  }),
+  async run({ token, input }) {
+    const res = await fetch(`${BASE}/boards`, {
+      method: "POST",
+      headers: { ...headers(token), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: input.name,
+        description: input.description,
+        privacy: input.privacy ?? "PUBLIC",
+      }),
+    });
+    if (!res.ok) return pinError(res);
+    const data = (await res.json()) as { id: string; name: string; url: string };
+    return {
+      ok: true,
+      summary: `Created board "${data.name}"`,
+      data,
+    };
+  },
+});
+
 type TopPin = {
   pin_id: string;
   metrics?: Partial<Record<"IMPRESSION" | "OUTBOUND_CLICK" | "PIN_CLICK" | "SAVE", number>>;

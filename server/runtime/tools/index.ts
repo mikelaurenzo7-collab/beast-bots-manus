@@ -9,6 +9,8 @@
 import "./web";
 import "./time";
 import "./notes";
+import "./math";
+import "./report";
 
 // ─── Trading: research + execution ───────────────────────────────────────
 import "./markets/kalshi";       // Kalshi Trader (execute)

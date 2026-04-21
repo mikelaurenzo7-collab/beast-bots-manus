@@ -147,6 +147,8 @@ enum BuiltinTools {
         .init(name: "notes.save", label: "Save note"),
         .init(name: "notes.list", label: "List notes"),
         .init(name: "notes.get", label: "Read note"),
+        .init(name: "math.calculate", label: "Calculator"),
+        .init(name: "report.table", label: "Format table"),
     ]
 
     static let defaults: [String] = all.map(\.name)

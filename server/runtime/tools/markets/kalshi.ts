@@ -130,6 +130,159 @@ registerTool({
   },
 });
 
+// ─── Expanded capabilities ─────────────────────────────────────────────────
+
+registerTool({
+  name: "kalshi.list_positions",
+  label: "Open positions",
+  provider: "kalshi",
+  description:
+    "List the user's open positions with cost basis and unrealized P&L. Use before proposing new trades so size + concentration are sane.",
+  input: z.object({
+    limit: z.number().int().min(1).max(200).optional(),
+  }),
+  async run({ token, input }) {
+    const params = new URLSearchParams({ limit: String(input.limit ?? 100) });
+    const res = await fetch(`${KALSHI_BASE}/portfolio/positions?${params}`, {
+      headers: kalshiHeaders(token),
+    });
+    if (!res.ok) return kalshiError(res);
+    const data = (await res.json()) as {
+      market_positions: {
+        ticker: string;
+        position: number;
+        market_exposure: number;
+        realized_pnl: number;
+        total_traded: number;
+        resting_orders_count?: number;
+      }[];
+    };
+    const rows = data.market_positions;
+    const totalExposure = rows.reduce((s, p) => s + Math.abs(p.market_exposure ?? 0), 0);
+    const totalPnl = rows.reduce((s, p) => s + (p.realized_pnl ?? 0), 0);
+    return {
+      ok: true,
+      summary: `${rows.length} positions — exposure $${(totalExposure / 100).toFixed(2)}, realized P&L $${(totalPnl / 100).toFixed(2)}`,
+      data: rows.map((p) => ({
+        ticker: p.ticker,
+        contracts: p.position,
+        exposureCents: p.market_exposure,
+        realizedPnlCents: p.realized_pnl,
+        totalTraded: p.total_traded,
+      })),
+    };
+  },
+});
+
+registerTool({
+  name: "kalshi.list_orders",
+  label: "Open orders",
+  provider: "kalshi",
+  description:
+    "List the user's open (resting) orders so the agent can reference or cancel them. Status 'resting' = live on the book.",
+  input: z.object({
+    ticker: z.string().optional(),
+    status: z.enum(["resting", "canceled", "executed"]).optional(),
+  }),
+  async run({ token, input }) {
+    const params = new URLSearchParams({
+      status: input.status ?? "resting",
+    });
+    if (input.ticker) params.set("ticker", input.ticker);
+    const res = await fetch(`${KALSHI_BASE}/portfolio/orders?${params}`, {
+      headers: kalshiHeaders(token),
+    });
+    if (!res.ok) return kalshiError(res);
+    const data = (await res.json()) as {
+      orders: {
+        order_id: string;
+        ticker: string;
+        side: string;
+        action: string;
+        yes_price?: number;
+        no_price?: number;
+        count: number;
+        remaining_count: number;
+        created_time?: string;
+      }[];
+    };
+    return {
+      ok: true,
+      summary: `${data.orders.length} ${input.status ?? "resting"} orders`,
+      data: data.orders.map((o) => ({
+        orderId: o.order_id,
+        ticker: o.ticker,
+        side: o.side,
+        action: o.action,
+        priceCents: o.yes_price ?? o.no_price,
+        count: o.count,
+        remaining: o.remaining_count,
+        createdAt: o.created_time,
+      })),
+    };
+  },
+});
+
+registerTool({
+  name: "kalshi.cancel_order",
+  label: "Cancel order",
+  provider: "kalshi",
+  description:
+    "Cancel an open Kalshi order by orderId. ALWAYS confirm the orderId and ticker with the user before calling.",
+  input: z.object({ orderId: z.string() }),
+  async run({ token, input }) {
+    const res = await fetch(
+      `${KALSHI_BASE}/portfolio/orders/${encodeURIComponent(input.orderId)}`,
+      { method: "DELETE", headers: kalshiHeaders(token) }
+    );
+    if (!res.ok) return kalshiError(res);
+    return { ok: true, summary: `Cancelled order ${input.orderId}` };
+  },
+});
+
+registerTool({
+  name: "kalshi.list_fills",
+  label: "Recent trade fills",
+  provider: "kalshi",
+  description:
+    "List recent fills (executed trades). Useful when the user asks 'what did I trade today?' or we need to compute a day's P&L.",
+  input: z.object({
+    ticker: z.string().optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+  }),
+  async run({ token, input }) {
+    const params = new URLSearchParams({ limit: String(input.limit ?? 25) });
+    if (input.ticker) params.set("ticker", input.ticker);
+    const res = await fetch(`${KALSHI_BASE}/portfolio/fills?${params}`, {
+      headers: kalshiHeaders(token),
+    });
+    if (!res.ok) return kalshiError(res);
+    const data = (await res.json()) as {
+      fills: {
+        trade_id?: string;
+        ticker: string;
+        side: string;
+        count: number;
+        yes_price?: number;
+        no_price?: number;
+        created_time?: string;
+      }[];
+    };
+    return {
+      ok: true,
+      summary: `${data.fills.length} fills`,
+      data: data.fills.map((f) => ({
+        tradeId: f.trade_id,
+        ticker: f.ticker,
+        side: f.side,
+        count: f.count,
+        priceCents: f.yes_price ?? f.no_price,
+        executedAt: f.created_time,
+      })),
+    };
+  },
+});
+
 type KalshiMarket = {
   ticker: string;
   title: string;
