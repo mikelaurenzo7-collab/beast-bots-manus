@@ -6,6 +6,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { ENV } from "./_core/env";
 import { executeBeast } from "./runtime";
 import {
   clearChatHistory,
@@ -205,17 +206,33 @@ const connectionsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Store the API key as the "access token" (plaintext for now — production would encrypt)
+      // Encrypt the API key using AES-256-GCM
+      const { encryptToken, packEncrypted } = await import("./_core/encryption");
       const { upsertOAuthConnection } = await import("./db");
+      const encrypted = encryptToken(input.apiKey, ENV.encryptionKey);
+      const packed = packEncrypted(encrypted);
       await upsertOAuthConnection({
         userId: ctx.user.id,
         provider: input.provider,
-        accessTokenCiphertext: input.apiKey,
+        accessTokenCiphertext: packed,
         accountName: input.accountName,
         scopes: [],
       });
       return { success: true };
     }),
+  // Test a saved connection
+  testConnection: protectedProcedure
+    .input(z.object({ provider: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const connection = await getOAuthConnection(ctx.user.id, input.provider);
+      if (!connection) {
+        return { success: false, error: "Connection not found" };
+      }
+      // In production, would make a real API call to verify the token
+      // For now, just check that token exists
+      return { success: !!connection.accessTokenCiphertext };
+    }),
+
 });
 
 // ─── Activity Router ──────────────────────────────────────────────────────────

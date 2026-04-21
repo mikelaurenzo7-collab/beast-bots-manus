@@ -85,31 +85,36 @@ export default function Templates() {
               <h3 className="text-lg font-semibold mb-2">{template.name}</h3>
               <p className="text-sm text-muted-foreground mb-4">{template.description}</p>
 
-              {/* Agents */}
+              {/* Workflow Diagram */}
               <div className="mb-4 p-3 bg-secondary rounded-lg">
-                <p className="text-xs font-medium text-muted-foreground mb-2">Agents</p>
-                <div className="flex flex-wrap gap-1">
-                  {template.agents.map((agent) => (
-                    <Badge key={agent} variant="outline" className="text-xs">
-                      {agent.replace("-beast", "")}
-                    </Badge>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Workflow</p>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {template.agents.map((agent, idx) => (
+                    <div key={agent} className="flex items-center gap-1">
+                      <div className="px-2 py-1 bg-background rounded text-xs font-medium truncate">
+                        {agent.replace("-beast", "")}
+                      </div>
+                      {idx < template.agents.length - 1 && (
+                        <div className="text-xs text-muted-foreground">→</div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
 
               {/* Stats */}
-              <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
+              <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground mb-4">
                 <div className="flex items-center gap-1">
                   <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                  {template.rating}
+                  <span>{template.rating}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Users className="w-3 h-3" />
-                  {template.uses.toLocaleString()}
+                  <span>{template.uses > 999 ? (template.uses / 1000).toFixed(1) + 'k' : template.uses}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {template.estimatedTime}
+                  <span>{template.estimatedTime}</span>
                 </div>
               </div>
 

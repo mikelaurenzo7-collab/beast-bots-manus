@@ -319,6 +319,18 @@ export default function Settings() {
                 </button>
               </div>
             </div>
+            {selectedProvider && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs font-semibold text-blue-900 mb-2">Requested Permissions</p>
+                <div className="space-y-1">
+                  {OAUTH_PROVIDERS.find((p: any) => p.id === selectedProvider)?.scopes?.map((scope: string) => (
+                    <div key={scope} className="text-xs text-blue-800">
+                      • {scope}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <Button
               onClick={() => handleSaveCredentials(selectedProvider!)}
               disabled={saveApiKeyMutation.isPending}
