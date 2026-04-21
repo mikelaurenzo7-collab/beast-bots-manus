@@ -446,6 +446,7 @@ export async function upsertSubscription(params: {
   status: Subscription["status"];
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
+  appleOriginalTransactionId?: string;
   currentPeriodEnd?: Date;
   cancelAtPeriodEnd?: boolean;
 }) {
@@ -460,6 +461,8 @@ export async function upsertSubscription(params: {
         stripeCustomerId: params.stripeCustomerId ?? existing.stripeCustomerId,
         stripeSubscriptionId:
           params.stripeSubscriptionId ?? existing.stripeSubscriptionId,
+        appleOriginalTransactionId:
+          params.appleOriginalTransactionId ?? existing.appleOriginalTransactionId,
         currentPeriodEnd: params.currentPeriodEnd ?? existing.currentPeriodEnd,
         cancelAtPeriodEnd: params.cancelAtPeriodEnd ?? existing.cancelAtPeriodEnd,
       })
@@ -474,6 +477,15 @@ export async function getSubscriptionByStripeCustomer(customerId: string) {
     .select()
     .from(subscriptions)
     .where(eq(subscriptions.stripeCustomerId, customerId))
+    .limit(1);
+  return row;
+}
+
+export async function getSubscriptionByAppleTxId(originalTransactionId: string) {
+  const [row] = await getDb()
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.appleOriginalTransactionId, originalTransactionId))
     .limit(1);
   return row;
 }

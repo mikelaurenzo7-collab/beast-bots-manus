@@ -2,11 +2,51 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var session: SessionStore
+    @EnvironmentObject private var subs: Subscriptions
     @State private var showSignOutConfirm = false
+    @State private var showPaywall = false
 
     var body: some View {
         NavigationStack {
             List {
+                Section("Plan") {
+                    if subs.isPro {
+                        HStack {
+                            Image(systemName: "bolt.fill").foregroundStyle(Theme.accent)
+                            VStack(alignment: .leading) {
+                                Text("Bot Boss Pro").font(.headline)
+                                if let expiry = subs.expiresAt {
+                                    Text("Renews \(expiry.formatted(date: .abbreviated, time: .omitted))")
+                                        .font(.caption).foregroundStyle(Theme.textSecondary)
+                                }
+                            }
+                        }
+                        Button("Manage subscription") {
+                            if let url = URL(string: "itms-apps://apps.apple.com/account/subscriptions") {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                    } else {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "bolt.fill").foregroundStyle(Theme.accent)
+                                VStack(alignment: .leading) {
+                                    Text("Upgrade to Pro").font(.headline)
+                                    Text("2,500 runs/day, scheduled recipes, push alerts")
+                                        .font(.caption).foregroundStyle(Theme.textSecondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right").foregroundStyle(Theme.textSecondary)
+                            }
+                        }
+                        Button("Restore purchases") {
+                            Task { await subs.restore() }
+                        }
+                    }
+                }
+
                 Section("Account") {
                     if let user = session.currentUser {
                         if let name = user.name {
@@ -40,6 +80,9 @@ struct SettingsView: View {
                                 titleVisibility: .visible) {
                 Button("Sign out", role: .destructive) { session.signOut() }
                 Button("Cancel", role: .cancel) {}
+            }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView().environmentObject(subs)
             }
         }
     }

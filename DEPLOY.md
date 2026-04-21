@@ -123,9 +123,42 @@ No OAuth dance; users paste their personal API key. Nothing for you to configure
      `customer.subscription.updated`, `customer.subscription.deleted`
    - Copy the signing secret → env `STRIPE_WEBHOOK_SECRET`.
 
-> Note: iOS billing **must** go through Apple IAP (App Store guideline 3.1.1).
-> StoreKit 2 wiring is not yet in this repo — web is the primary billing
-> surface for now; iOS users subscribe on the web side. See next-steps below.
+## 5b. Configure Apple In-App Purchases (iOS billing)
+
+iOS billing **must** go through Apple IAP for digital goods (guideline 3.1.1).
+StoreKit 2 is already wired in the app; you need to set up the products and
+the App Store Server API credentials.
+
+1. **App Store Connect → My Apps → BotBoss → Subscriptions:**
+   - Create a subscription group named `Bot Boss Pro`.
+   - Add two subscription products with these exact product IDs (they're
+     hard-coded in `ios/BotBoss/Core/Subscriptions.swift`):
+     - `com.botboss.pro.monthly`  ($19.99 / month)
+     - `com.botboss.pro.yearly`   ($149.99 / year)
+
+2. **App Store Connect → Users and Access → Integrations → In-App Purchase**
+   → **+ new key**:
+   - Download the `.p8`. Save the **Issuer ID** (UUID) and **Key ID** (10 chars).
+   - Set env on the backend:
+     ```
+     APPSTORE_ISSUER_ID=...
+     APPSTORE_KEY_ID=...
+     APPSTORE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
+     <contents of .p8>
+     -----END PRIVATE KEY-----"
+     APPSTORE_ENVIRONMENT=production   # or "sandbox" for TestFlight
+     APPSTORE_BUNDLE_ID=com.botboss.BotBoss
+     ```
+
+3. **App Store Server Notifications V2:**
+   - App Store Connect → your app → **App Information** → **App Store Server
+     Notifications** → Production/Sandbox URL: `https://api.botboss.app/v1/webhooks/apple`
+   - Version: V2.
+
+4. The iOS paywall will automatically pick up the two products via
+   `Product.products(for:)`. After any purchase, the app sends the
+   transaction id to `POST /v1/billing/apple/verify` which consults the
+   App Store Server API and updates the `subscriptions` table.
 
 ## 6. Deploy the backend
 
@@ -245,11 +278,11 @@ curl -s -H "Authorization: Bearer $TOKEN" https://api.botboss.app/v1/boss/quota
 
 ## Next-steps backlog (for me to pick up after this)
 
-1. **Apple IAP / StoreKit 2** wiring on iOS, receipt validation on the server.
-2. **Smoke tests** — vitest suite covering auth, bot run, OAuth callback,
-   Stripe webhook, Shopify webhook HMAC.
-3. **Usage-based logging** — tokensUsed + durationMs aggregates on Activity.
-4. **Billing gate** — once subscription status is `active`, raise the daily
-   run cap to `DAILY_RUN_QUOTA_PRO`.
-5. **Per-bot onboarding flows** — first-run tour per Money Bot explaining
+1. **Usage analytics on Activity** — tokens + cost per run, per bot, so
+   you can watch unit economics live.
+2. **Per-bot onboarding tours** — first-run tour per Money Bot explaining
    what to connect, what a typical week of prompts looks like.
+3. **Integration tests** — real HTTP against the running server (full
+   auth → bot-run → webhook → subscription flow).
+4. **Localization** — App Store listing + in-app copy in a second language
+   to open the EU market without extra work.

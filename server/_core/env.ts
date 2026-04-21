@@ -73,4 +73,15 @@ export const ENV = {
     process.env.STRIPE_SUCCESS_URL ?? "https://app.botboss.app/settings?billing=success",
   stripeCancelUrl:
     process.env.STRIPE_CANCEL_URL ?? "https://app.botboss.app/settings?billing=cancel",
+
+  // App Store Connect API (for iOS IAP receipt / subscription lookup).
+  // Create at App Store Connect → Users and Access → Integrations → In-App Purchase.
+  appStoreIssuerId: process.env.APPSTORE_ISSUER_ID ?? "",
+  appStoreKeyId: process.env.APPSTORE_KEY_ID ?? "",
+  appStorePrivateKey: process.env.APPSTORE_PRIVATE_KEY ?? "",
+  appStoreEnvironment: (process.env.APPSTORE_ENVIRONMENT ?? "sandbox") as
+    | "sandbox"
+    | "production",
+  appStoreBundleId:
+    process.env.APPSTORE_BUNDLE_ID ?? process.env.APPLE_CLIENT_ID ?? "",
 };

@@ -142,6 +142,10 @@ export const subscriptions = mysqlTable("subscriptions", {
     .notNull(),
   stripeCustomerId: varchar("stripeCustomerId", { length: 128 }),
   stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 128 }),
+  /** Apple StoreKit: the originalTransactionId linking all renewals. */
+  appleOriginalTransactionId: varchar("appleOriginalTransactionId", {
+    length: 128,
+  }),
   currentPeriodEnd: timestamp("currentPeriodEnd"),
   cancelAtPeriodEnd: boolean("cancelAtPeriodEnd").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

@@ -2,9 +2,15 @@ import { Router, raw } from "express";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { ENV } from "../_core/env";
 import { verifyWebhookSignature } from "../_core/stripe";
+import {
+  decodeJwsPayload,
+  decodeServerNotification,
+  fetchSubscriptionStatus,
+} from "../_core/appStore";
 import { logger } from "../_core/logger";
 import {
   findUserByShopifyShop,
+  getSubscriptionByAppleTxId,
   recordWebhook,
   upsertSubscription,
 } from "../db";
@@ -122,6 +128,89 @@ webhooksRouter.post("/shopify", rawBody, async (req, res) => {
     }
   } catch (err) {
     logger.error("shopify webhook handler failed", { err: String(err), topic, shop });
+  }
+});
+
+// ─── Apple — App Store Server Notifications V2 ────────────────────────────
+
+/**
+ * App Store posts a JSON body: { signedPayload: "<JWS>" }. The JWS payload
+ * contains notificationType, data.signedTransactionInfo, and
+ * data.signedRenewalInfo. We decode (without sig verify; the API call next
+ * line is authenticated over TLS) and then re-fetch authoritative status.
+ *
+ * We correlate the transaction to a user via our subscriptions table, which
+ * was populated when the user first verified the purchase via
+ * /v1/billing/apple/verify (that path set stripeSubscriptionId =
+ * originalTransactionId — yes, the column name is historical; we reuse it
+ * for Apple's originalTransactionId too so renewals find the user).
+ */
+webhooksRouter.post("/apple", rawBody, async (req, res) => {
+  let signedPayload: string;
+  try {
+    const body = JSON.parse((req.body as Buffer).toString("utf8"));
+    signedPayload = body.signedPayload;
+    if (typeof signedPayload !== "string") throw new Error("no signedPayload");
+  } catch (err) {
+    logger.warn("apple webhook malformed", { err: String(err) });
+    return res.status(400).send("bad body");
+  }
+
+  res.status(200).send("ok");
+
+  try {
+    const notif = decodeServerNotification(signedPayload);
+    const txPayload = notif.data?.signedTransactionInfo
+      ? decodeJwsPayload<{
+          originalTransactionId?: string;
+          productId?: string;
+          environment?: string;
+        }>(notif.data.signedTransactionInfo)
+      : null;
+
+    const originalTxId = txPayload?.originalTransactionId;
+    if (!originalTxId) return;
+
+    const fresh = await recordWebhook({
+      provider: "apple",
+      externalId: `${notif.notificationType}:${originalTxId}:${Date.now()}`,
+      topic: notif.notificationType,
+      payload: notif,
+    });
+    if (!fresh) return;
+
+    // Find the user by stored originalTransactionId.
+    const sub = await getSubscriptionByAppleTxId(originalTxId);
+    if (!sub) {
+      logger.warn("apple webhook: no user for originalTxId", { originalTxId });
+      return;
+    }
+
+    const status = await fetchSubscriptionStatus(originalTxId);
+    if (!status) return;
+
+    const active = [1, 3, 4].includes(status.status);
+    await upsertSubscription({
+      userId: sub.userId,
+      plan: active ? "pro" : "free",
+      status: active ? "active" : "canceled",
+      appleOriginalTransactionId: originalTxId,
+      currentPeriodEnd: status.expiresDate
+        ? new Date(status.expiresDate)
+        : undefined,
+      cancelAtPeriodEnd: status.autoRenewStatus === 0,
+    });
+
+    if (notif.notificationType === "DID_RENEW") {
+      await sendPushToUser(sub.userId, {
+        title: "Bot Boss Pro renewed",
+        body: status.expiresDate
+          ? `Renewed through ${new Date(status.expiresDate).toLocaleDateString()}`
+          : "Your subscription renewed.",
+      });
+    }
+  } catch (err) {
+    logger.error("apple webhook handler failed", { err: String(err) });
   }
 });
 

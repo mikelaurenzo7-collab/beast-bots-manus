@@ -5,11 +5,13 @@ import UIKit
 struct BotBossApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var session = SessionStore()
+    @StateObject private var subs = Subscriptions()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(session)
+                .environmentObject(subs)
                 .tint(Theme.accent)
         }
     }

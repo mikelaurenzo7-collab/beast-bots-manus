@@ -8,10 +8,15 @@ import {
   createOrRetrieveCustomer,
 } from "../_core/stripe";
 import {
+  fetchSubscriptionStatus,
+  isAppStoreConfigured,
+} from "../_core/appStore";
+import {
   getSubscription,
   getUserById,
   upsertSubscription,
 } from "../db";
+import { logger } from "../_core/logger";
 
 export const billingRouter = Router();
 
@@ -108,3 +113,81 @@ billingRouter.get("/subscription", async (req, res, next) => {
     next(err);
   }
 });
+
+const appleVerifySchema = z.object({
+  transactionId: z.string().min(1),
+  /** Whether the buy happened in StoreKit's sandbox (TestFlight = sandbox). */
+  sandbox: z.boolean().optional(),
+});
+
+/**
+ * POST /v1/billing/apple/verify  (auth required)
+ *
+ * Called by the iOS app after a StoreKit 2 purchase. Looks the transaction
+ * up via the App Store Server API, persists the resulting subscription in
+ * our subscriptions table, and returns the updated plan.
+ */
+billingRouter.post("/apple/verify", async (req, res, next) => {
+  try {
+    const userId = requireUserId(req);
+    if (!isAppStoreConfigured()) {
+      throw new HttpError(500, "App Store Server API not configured");
+    }
+    const body = appleVerifySchema.parse(req.body);
+    const status = await fetchSubscriptionStatus(body.transactionId);
+    if (!status) throw new HttpError(404, "Transaction not found");
+
+    // status codes: 1=active, 3=in retry, 4=grace → allow Pro; else demote.
+    const isActive = [1, 3, 4].includes(status.status);
+    await upsertSubscription({
+      userId,
+      plan: isActive ? "pro" : "free",
+      status: mapAppStoreStatus(status.status),
+      appleOriginalTransactionId: status.originalTransactionId,
+      currentPeriodEnd: status.expiresDate
+        ? new Date(status.expiresDate)
+        : undefined,
+      cancelAtPeriodEnd: status.autoRenewStatus === 0,
+    });
+    logger.info("apple IAP verified", {
+      userId,
+      productId: status.productId,
+      status: status.status,
+    });
+    res.json({
+      plan: isActive ? "pro" : "free",
+      productId: status.productId,
+      expiresAt: status.expiresDate
+        ? new Date(status.expiresDate).toISOString()
+        : null,
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) return next(new HttpError(400, err.message));
+    next(err);
+  }
+});
+
+function mapAppStoreStatus(
+  code: number
+):
+  | "active"
+  | "trialing"
+  | "past_due"
+  | "canceled"
+  | "unpaid"
+  | "incomplete" {
+  switch (code) {
+    case 1:
+      return "active";
+    case 2:
+      return "canceled"; // expired
+    case 3:
+      return "past_due"; // in billing retry
+    case 4:
+      return "active"; // in grace period — still entitled
+    case 5:
+      return "canceled"; // revoked
+    default:
+      return "incomplete";
+  }
+}
