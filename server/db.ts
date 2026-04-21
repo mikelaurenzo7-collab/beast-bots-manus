@@ -167,6 +167,9 @@ export async function createOAuthState(params: {
   state: string;
   userId: number;
   providerId: string;
+  codeVerifier?: string;
+  shop?: string;
+  returnTo?: string;
   expiresAt: Date;
 }) {
   await getDb().insert(oauthState).values(params);
@@ -286,6 +289,17 @@ export async function listRuns(userId: number, limit = 50) {
     .where(eq(runs.userId, userId))
     .orderBy(desc(runs.createdAt))
     .limit(limit);
+}
+
+/** How many runs the user has created since UTC midnight today. */
+export async function countRunsToday(userId: number): Promise<number> {
+  const since = new Date();
+  since.setUTCHours(0, 0, 0, 0);
+  const [row] = await getDb()
+    .select({ count: sql<number>`count(*)` })
+    .from(runs)
+    .where(and(eq(runs.userId, userId), sql`${runs.createdAt} >= ${since}`));
+  return row?.count ?? 0;
 }
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────

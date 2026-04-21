@@ -45,12 +45,15 @@ export const oauthConnections = mysqlTable("oauth_connections", {
 
 export type OAuthConnection = typeof oauthConnections.$inferSelect;
 
-/** CSRF state for initiating OAuth flows from the iOS app's in-app browser. */
+/** CSRF + PKCE state for initiating OAuth flows from web or iOS. */
 export const oauthState = mysqlTable("oauth_state", {
   id: int("id").autoincrement().primaryKey(),
   state: varchar("state", { length: 128 }).notNull().unique(),
   userId: int("userId").notNull(),
   providerId: varchar("providerId", { length: 64 }).notNull(),
+  codeVerifier: varchar("codeVerifier", { length: 256 }),
+  shop: varchar("shop", { length: 256 }),
+  returnTo: text("returnTo"),
   used: boolean("used").default(false).notNull(),
   expiresAt: timestamp("expiresAt").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

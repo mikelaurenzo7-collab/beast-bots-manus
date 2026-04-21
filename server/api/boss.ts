@@ -4,12 +4,16 @@ import { BOTS, BOSS, getBot } from "../../shared/bots";
 import { executeBoss } from "../runtime";
 import {
   appendChat,
+  countRunsToday,
   createRun,
   finishRun,
   getRecipe,
   loadChat,
 } from "../db";
 import { HttpError, requireUserId } from "../_core/middleware";
+import { ENV } from "../_core/env";
+import { sendPushToUser, isApnsConfigured } from "../_core/apns";
+import { logger } from "../_core/logger";
 
 export const bossRouter = Router();
 
@@ -18,20 +22,31 @@ const runSchema = z.object({
   message: z.string().min(1).max(16_000),
   recipeId: z.number().int().optional(),
   useHistory: z.boolean().optional(),
+  /** When true, also send a push summary to this user's devices. */
+  pushOnComplete: z.boolean().optional(),
 });
 
 /**
  * POST /v1/boss/run
  *
- * Body: { botSlug?, message, recipeId?, useHistory? }
- * Default botSlug = "boss" (the generalist).
- *
- * Returns: { reply, toolCalls: [...], runId, botSlug, recipeName? }
+ * Runs a bot turn. Enforces per-user daily quota before executing.
+ * When `pushOnComplete=true`, fires an APNs notification with the reply.
  */
 bossRouter.post("/run", async (req, res, next) => {
   try {
     const userId = requireUserId(req);
     const body = runSchema.parse(req.body);
+
+    // Daily quota gate. Free tier for now; swap when Pro billing lands.
+    const used = await countRunsToday(userId);
+    const limit = ENV.dailyRunQuotaFree;
+    if (used >= limit) {
+      throw new HttpError(
+        429,
+        `Daily run limit reached (${limit}). Upgrade to Pro for more.`
+      );
+    }
+
     const bot = getBot(body.botSlug ?? "boss") ?? BOSS;
 
     let systemPrompt = bot.systemPrompt;
@@ -92,6 +107,19 @@ bossRouter.post("/run", async (req, res, next) => {
         runId: run.id,
       });
 
+      // Fire push (non-blocking). Only if explicitly requested or if the
+      // run did real work (tool calls actually executed).
+      const notable = body.pushOnComplete || result.runs.length > 0;
+      if (notable && isApnsConfigured()) {
+        sendPushToUser(userId, {
+          title: bot.name,
+          body: truncate(result.reply, 180),
+          data: { runId: String(run.id), botSlug: bot.slug },
+        }).catch((err) =>
+          logger.warn("push failed", { userId, runId: run.id, err: String(err) })
+        );
+      }
+
       res.json({
         reply: result.reply,
         toolCalls: result.runs.map((r) => ({
@@ -104,6 +132,7 @@ bossRouter.post("/run", async (req, res, next) => {
         runId: run.id,
         botSlug: bot.slug,
         recipeName,
+        quota: { used: used + 1, limit },
       });
     } catch (err) {
       await finishRun(run.id, {
@@ -140,7 +169,7 @@ bossRouter.get("/chat", async (req, res, next) => {
   }
 });
 
-/** GET /v1/boss/catalog  → the Money Bots catalog + connection status. */
+/** GET /v1/boss/catalog  → the Money Bots catalog. */
 bossRouter.get("/catalog", async (_req, res) => {
   res.json({
     bots: BOTS.map((b) => ({
@@ -153,6 +182,17 @@ bossRouter.get("/catalog", async (_req, res) => {
       revenueProposition: b.revenueProposition,
     })),
   });
+});
+
+/** GET /v1/boss/quota  → today's usage, for the web header display. */
+bossRouter.get("/quota", async (req, res, next) => {
+  try {
+    const userId = requireUserId(req);
+    const used = await countRunsToday(userId);
+    res.json({ used, limit: ENV.dailyRunQuotaFree });
+  } catch (err) {
+    next(err);
+  }
 });
 
 function truncate(s: string, max: number): string {
