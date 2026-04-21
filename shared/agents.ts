@@ -87,6 +87,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#EA4335",
     actions: ["Summarize inbox", "Draft reply", "Create filter", "Unsubscribe", "Schedule email"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Gmail Beast, an AI assistant for email management. You have tools to read, send, and draft emails. Always confirm recipient addresses before sending. Help users organize, summarize, and respond to emails efficiently.",
   },
   {
     slug: "slack-beast",
@@ -150,6 +152,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#5865F2",
     actions: ["Moderate message", "Assign role", "Send announcement", "Create poll"],
+  tools: ["slack.list_channels"],
+  systemPrompt: "You are Discord Beast, a community assistant for Discord servers. Help manage channels, send messages, and keep communities engaged.",
   },
   {
     slug: "outlook-beast",
@@ -175,6 +179,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#0078D4",
     actions: ["Categorize emails", "Schedule meeting", "Draft email", "Set OOO"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Outlook Beast, an AI assistant for Outlook. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "twilio-beast",
@@ -198,6 +204,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#F22F46",
     actions: ["Send SMS", "Make call", "Send WhatsApp", "Check delivery"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Twilio Beast, a communication assistant. Help businesses send SMS, emails, and voice messages at scale.",
   },
 
   // ─── PRODUCTIVITY ────────────────────────────────────────────────────────────
@@ -264,6 +272,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#4285F4",
     actions: ["Schedule meeting", "Block focus time", "Send reminder", "Prep brief"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Calendar Beast, an AI scheduling assistant. Help users manage their calendar, find meeting times, and optimize schedules for focus and productivity.",
   },
   {
     slug: "todoist-beast",
@@ -287,6 +297,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#DB4035",
     actions: ["Create task", "Prioritize backlog", "Set deadline", "Generate report"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Todoist Beast, a task management assistant. Help users organize work, set priorities, and stay productive.",
   },
   {
     slug: "trello-beast",
@@ -309,6 +321,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#0052CC",
     actions: ["Move card", "Create board", "Assign task", "Sprint report"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Trello Beast, a visual project management assistant. Help teams organize work with boards, lists, and cards.",
   },
   {
     slug: "linear-beast",
@@ -332,6 +346,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#5E6AD2",
     actions: ["Triage issue", "Plan sprint", "Update roadmap", "Track velocity"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Linear Beast, a project management assistant. Help teams track issues, manage sprints, and stay organized.",
   },
 
   // ─── DEVELOPMENT ─────────────────────────────────────────────────────────────
@@ -395,6 +411,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#0052CC",
     actions: ["Create ticket", "Update sprint", "Generate report", "Triage bugs"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Jira Beast, an agile project management assistant. Help teams track work, manage sprints, and deliver projects.",
   },
   {
     slug: "vercel-beast",
@@ -418,6 +436,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#000000",
     actions: ["Monitor deploy", "Rollback", "Share preview", "Check performance"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Vercel Beast, a deployment assistant. Help developers deploy and manage serverless functions and static sites.",
   },
   {
     slug: "aws-beast",
@@ -441,6 +461,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#FF9900",
     actions: ["Check costs", "Scale instance", "Monitor health", "Optimize resources"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are AWS Beast, a cloud infrastructure assistant. Help users manage AWS services and resources.",
   },
   {
     slug: "docker-beast",
@@ -464,6 +486,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#2496ED",
     actions: ["Check containers", "Optimize image", "View logs", "Scale service"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Docker Beast, a containerization assistant. Help developers build, ship, and run containerized applications.",
   },
 
   // ─── DATA & STORAGE ──────────────────────────────────────────────────────────
@@ -491,6 +515,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#4285F4",
     actions: ["Organize files", "Summarize doc", "Share folder", "Find duplicates"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Google Drive Beast, an AI assistant for Google Drive. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "dropbox-beast",
@@ -515,6 +541,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#0061FF",
     actions: ["Sync files", "Share folder", "Restore version", "Search files"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Dropbox Beast, an AI assistant for Dropbox. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "airtable-beast",
@@ -537,6 +565,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#FCB400",
     actions: ["Create record", "Run automation", "Generate report", "Sync bases"],
+  tools: ["notion.list_databases"],
+  systemPrompt: "You are Airtable Beast, a database assistant. Help users organize data, build workflows, and automate processes.",
   },
   {
     slug: "snowflake-beast",
@@ -560,6 +590,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#29B5E8",
     actions: ["Query data", "Optimize query", "Check costs", "Profile dataset"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Snowflake Beast, an AI assistant for Snowflake. Help users accomplish their goals efficiently and effectively.",
   },
 
   // ─── BUSINESS ────────────────────────────────────────────────────────────────
@@ -585,6 +617,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#635BFF",
     actions: ["Check revenue", "Detect fraud", "Manage subscription", "Generate invoice"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Stripe Beast, a payment processing assistant. Help businesses manage customers, process payments, and handle billing.",
   },
   {
     slug: "quickbooks-beast",
@@ -608,6 +642,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#2CA01C",
     actions: ["Categorize transactions", "Reconcile account", "Generate P&L", "Prep taxes"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Quickbooks Beast, an AI assistant for QuickBooks. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "zendesk-beast",
@@ -631,6 +667,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#03363D",
     actions: ["Triage ticket", "Draft response", "Escalate issue", "Generate CSAT report"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Zendesk Beast, a customer support assistant. Help teams manage support tickets and resolve issues.",
   },
   {
     slug: "intercom-beast",
@@ -654,6 +692,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#1F8DED",
     actions: ["Handle chat", "Qualify lead", "Route conversation", "Answer from KB"],
+  tools: ["slack.send_message"],
+  systemPrompt: "You are Intercom Beast, a customer communication assistant. Help teams engage customers across channels.",
   },
 
   // ─── CRM & SALES ─────────────────────────────────────────────────────────────
@@ -681,6 +721,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#00A1E0",
     actions: ["Score lead", "Update record", "Generate proposal", "Track pipeline"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Salesforce Beast, a CRM assistant. Help sales teams manage leads, opportunities, and customer relationships.",
   },
   {
     slug: "hubspot-beast",
@@ -703,6 +745,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#FF7A59",
     actions: ["Manage contact", "Send sequence", "Update deal", "Generate report"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are HubSpot Beast, a marketing and sales assistant. Help teams manage contacts, deals, and customer relationships.",
   },
   {
     slug: "pipedrive-beast",
@@ -725,6 +769,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#1A1F36",
     actions: ["Move deal", "Log activity", "Send reminder", "Forecast revenue"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Pipedrive Beast, a sales pipeline assistant. Help teams manage deals and close more business.",
   },
   {
     slug: "apollo-beast",
@@ -748,6 +794,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#3B82F6",
     actions: ["Find prospects", "Enrich contact", "Send outreach", "Track replies"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Apollo Beast, an AI assistant for Apollo. Help users accomplish their goals efficiently and effectively.",
   },
 
   // ─── MARKETING ───────────────────────────────────────────────────────────────
@@ -773,6 +821,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#FFE01B",
     actions: ["Create campaign", "Segment audience", "Run A/B test", "Generate report"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Mailchimp Beast, an email marketing assistant. Help businesses create and manage email campaigns.",
   },
   {
     slug: "google-ads-beast",
@@ -798,6 +848,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#4285F4",
     actions: ["Optimize bids", "Generate ad copy", "Research keywords", "View ROAS"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Google Ads Beast, an AI assistant for Google Ads. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "semrush-beast",
@@ -821,6 +873,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#FF642D",
     actions: ["Analyze keywords", "Audit site", "Track rankings", "Monitor competitors"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Semrush Beast, an AI assistant for SEMrush. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "buffer-beast",
@@ -844,6 +898,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#168EEA",
     actions: ["Schedule post", "Repurpose content", "Analyze engagement", "Suggest hashtags"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Buffer Beast, an AI assistant for Buffer. Help users accomplish their goals efficiently and effectively.",
   },
 
   // ─── SOCIAL & CONTENT ────────────────────────────────────────────────────────
@@ -871,6 +927,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#000000",
     actions: ["Write tweet", "Schedule thread", "Monitor mentions", "Analyze engagement"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Twitter Beast, a social media assistant. Help users create, schedule, and manage tweets.",
   },
   {
     slug: "linkedin-beast",
@@ -896,6 +954,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#0A66C2",
     actions: ["Write post", "Draft message", "Analyze content", "Optimize profile"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are LinkedIn Beast, a professional networking assistant. Help users build their professional brand.",
   },
   {
     slug: "instagram-beast",
@@ -919,6 +979,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#E1306C",
     actions: ["Generate caption", "Research hashtags", "Schedule post", "Analyze audience"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Instagram Beast, a social media assistant. Help creators manage Instagram content.",
   },
   {
     slug: "youtube-beast",
@@ -943,6 +1005,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#FF0000",
     actions: ["Optimize title", "Write description", "Generate tags", "Analyze channel"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are YouTube Beast, a video management assistant. Help creators manage YouTube channels.",
   },
   {
     slug: "wordpress-beast",
@@ -966,6 +1030,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#21759B",
     actions: ["Write post", "Optimize SEO", "Moderate comments", "Schedule publish"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Wordpress Beast, an AI assistant for WordPress. Help users accomplish their goals efficiently and effectively.",
   },
 
   // ─── DATA APIs ────────────────────────────────────────────────────────────────
@@ -992,6 +1058,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#10A37F",
     actions: ["Generate content", "Write code", "Analyze data", "Generate image"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are OpenAI Beast, an AI assistant. Help users leverage GPT models for text generation and analysis.",
   },
   {
     slug: "anthropic-beast",
@@ -1014,6 +1082,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#CC785C",
     actions: ["Analyze document", "Write long-form", "Review code", "Synthesize research"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Anthropic Beast, an AI assistant. Help users leverage Claude for advanced reasoning and analysis.",
   },
   {
     slug: "weather-beast",
@@ -1037,6 +1107,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#4A90D9",
     actions: ["Get weather", "Set alert", "Get forecast", "Check air quality"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Weather Beast, an AI assistant for OpenWeatherMap. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "news-beast",
@@ -1060,6 +1132,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#E63946",
     actions: ["Get briefing", "Track topic", "Analyze sentiment", "Detect trends"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are News Beast, an AI assistant for NewsAPI. Help users accomplish their goals efficiently and effectively.",
   },
 
   // ─── AI ───────────────────────────────────────────────────────────────────────
@@ -1084,6 +1158,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#20808D",
     actions: ["Research topic", "Fact check", "Competitive analysis", "Generate report"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Perplexity Beast, an AI assistant for Perplexity. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "midjourney-beast",
@@ -1107,6 +1183,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#FF6B6B",
     actions: ["Generate image", "Create variation", "Upscale image", "Transfer style"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Midjourney Beast, an AI assistant for Midjourney. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "elevenlabs-beast",
@@ -1130,6 +1208,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#7C3AED",
     actions: ["Convert to speech", "Clone voice", "Create voiceover", "Generate podcast"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Elevenlabs Beast, an AI assistant for ElevenLabs. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "pinecone-beast",
@@ -1153,6 +1233,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#1C1C2E",
     actions: ["Store vectors", "Semantic search", "Build RAG", "Manage index"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Pinecone Beast, an AI assistant for Pinecone. Help users accomplish their goals efficiently and effectively.",
   },
 
   // ─── E-COMMERCE ──────────────────────────────────────────────────────────────
@@ -1178,6 +1260,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#96BF48",
     actions: ["Manage products", "Process orders", "Track inventory", "Optimize prices"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Shopify Beast, an e-commerce assistant. Help store owners manage products, process orders, and grow their business.",
   },
   {
     slug: "woocommerce-beast",
@@ -1200,6 +1284,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#7F54B3",
     actions: ["Manage products", "Process refund", "Generate report", "Manage coupons"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are WooCommerce Beast, an e-commerce assistant. Help store owners manage products and orders on WordPress.",
   },
   {
     slug: "amazon-seller-beast",
@@ -1223,6 +1309,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#FF9900",
     actions: ["Optimize listing", "Track BSR", "Monitor reviews", "Manage FBA"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Amazon Seller Beast, an AI assistant for Amazon Seller. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "klaviyo-beast",
@@ -1245,6 +1333,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#1A1A1A",
     actions: ["Create flow", "Segment customers", "Send campaign", "Track revenue"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Klaviyo Beast, an e-commerce marketing assistant. Help stores drive revenue with email and SMS.",
   },
 
   // ─── FINANCE & TRADING ───────────────────────────────────────────────────────
@@ -1269,6 +1359,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#00B0F0",
     actions: ["Sync transactions", "Categorize spending", "Set budget", "Generate report"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Plaid Beast, an AI assistant for Plaid. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "alpaca-beast",
@@ -1292,6 +1384,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#FECC02",
     actions: ["Execute trade", "Monitor positions", "Backtest strategy", "Rebalance portfolio"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Alpaca Beast, an AI assistant for Alpaca. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "coinbase-beast",
@@ -1318,6 +1412,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#0052FF",
     actions: ["Check portfolio", "Execute DCA", "Set price alert", "Generate tax report"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Coinbase Beast, a cryptocurrency assistant. Help users buy, sell, and manage crypto assets.",
   },
   {
     slug: "polygon-beast",
@@ -1341,6 +1437,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#6366F1",
     actions: ["Get quote", "Fetch options", "Get earnings", "Calculate indicators"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Polygon Beast, a market data assistant. Help users access real-time market data.",
   },
 
   // ─── INFRASTRUCTURE ──────────────────────────────────────────────────────────
@@ -1366,6 +1464,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#632CA6",
     actions: ["Check metrics", "Create alert", "Analyze logs", "Investigate incident"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Datadog Beast, an AI assistant for Datadog. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "pagerduty-beast",
@@ -1388,6 +1488,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#06AC38",
     actions: ["Route incident", "Run runbook", "Generate post-mortem", "Update schedule"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Pagerduty Beast, an AI assistant for PagerDuty. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "cloudflare-beast",
@@ -1411,6 +1513,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#F6821F",
     actions: ["Manage DNS", "Update firewall", "Monitor DDoS", "Deploy worker"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Cloudflare Beast, an AI assistant for Cloudflare. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "terraform-beast",
@@ -1434,6 +1538,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#7B42BC",
     actions: ["Generate config", "Plan changes", "Apply update", "Estimate costs"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Terraform Beast, an AI assistant for Terraform. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "kubernetes-beast",
@@ -1457,6 +1563,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#326CE5",
     actions: ["Monitor cluster", "Scale pods", "Troubleshoot issue", "Optimize resources"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Kubernetes Beast, an orchestration assistant. Help teams manage containerized applications at scale.",
   },
 
   // ─── ANALYTICS ───────────────────────────────────────────────────────────────
@@ -1484,6 +1592,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#E37400",
     actions: ["Get traffic report", "Track conversions", "Analyze audience", "Get recommendations"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Google Analytics Beast, a web analytics assistant. Help users understand website traffic and user behavior.",
   },
   {
     slug: "mixpanel-beast",
@@ -1506,6 +1616,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#7856FF",
     actions: ["Analyze funnel", "Check retention", "Segment users", "Run cohort analysis"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Mixpanel Beast, a product analytics assistant. Help teams understand user engagement.",
   },
   {
     slug: "amplitude-beast",
@@ -1528,6 +1640,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#1B1B1B",
     actions: ["Analyze behavior", "Find power users", "Track adoption", "Predict churn"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Amplitude Beast, a behavioral analytics assistant. Help teams optimize user experiences.",
   },
   {
     slug: "looker-beast",
@@ -1550,6 +1664,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#4285F4",
     actions: ["Query data", "Generate dashboard", "Schedule report", "Create alert"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Looker Beast, an AI assistant for Looker. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "tableau-beast",
@@ -1572,6 +1688,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#E97627",
     actions: ["Refresh workbook", "Publish dashboard", "Update data source", "Generate story"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Tableau Beast, an AI assistant for Tableau. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "dbt-beast",
@@ -1595,6 +1713,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#FF694A",
     actions: ["Run models", "Check quality", "Generate docs", "View lineage"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Dbt Beast, an AI assistant for dbt. Help users accomplish their goals efficiently and effectively.",
   },
 
   // ─── Additional agents to reach 80 ──────────────────────────────────────────
@@ -1619,6 +1739,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#FF4A00",
     actions: ["Create Zap", "Monitor runs", "Debug failure", "Optimize workflow"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Zapier Beast, a workflow automation assistant. Help users automate tasks across apps.",
   },
   {
     slug: "make-beast",
@@ -1641,6 +1763,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#6D00CC",
     actions: ["Build scenario", "Manage flow", "Handle errors", "Map data"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Make Beast, a workflow automation assistant. Help teams automate business processes.",
   },
   {
     slug: "n8n-beast",
@@ -1663,6 +1787,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#EA4B71",
     actions: ["Trigger workflow", "Monitor runs", "Debug execution", "Transform data"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are n8n Beast, a workflow automation assistant. Help teams build complex automations.",
   },
   {
     slug: "figma-beast",
@@ -1687,6 +1813,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#F24E1E",
     actions: ["Extract tokens", "Generate docs", "Handoff to dev", "Track versions"],
+  tools: ["github.list_repos", "github.create_issue"],
+  systemPrompt: "You are Figma Beast, an AI assistant for Figma. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "posthog-beast",
@@ -1709,6 +1837,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#F54E00",
     actions: ["Track event", "Toggle flag", "Analyze session", "Run A/B test"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Posthog Beast, an AI assistant for PostHog. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "redis-beast",
@@ -1731,6 +1861,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#DC382D",
     actions: ["Monitor performance", "Flush cache", "Optimize memory", "Manage queues"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Redis Beast, a caching assistant. Help developers manage in-memory data stores.",
   },
   {
     slug: "supabase-beast",
@@ -1753,6 +1885,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#3ECF8E",
     actions: ["Manage database", "Configure auth", "Deploy function", "Monitor realtime"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Supabase Beast, an open-source Firebase alternative. Help developers build scalable applications.",
   },
   {
     slug: "resend-beast",
@@ -1775,6 +1909,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#000000",
     actions: ["Send email", "Monitor delivery", "Handle bounce", "Manage templates"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Resend Beast, an AI assistant for Resend. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "linear-pro-beast",
@@ -1799,6 +1935,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#5E6AD2",
     actions: ["Create issue", "Plan sprint", "Update cycle", "Generate report"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Linear Pro Beast, an AI assistant for Linear. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "claude-beast",
@@ -1822,6 +1960,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#D4A27F",
     actions: ["Analyze document", "Review code", "Generate content", "Answer question"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Claude Beast, an AI assistant for Anthropic. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "cohere-beast",
@@ -1844,6 +1984,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#39594D",
     actions: ["Classify text", "Generate embeddings", "Semantic search", "Summarize"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Cohere Beast, an NLP assistant. Help users leverage language models for text generation.",
   },
   {
     slug: "brex-beast",
@@ -1867,6 +2009,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#FF6B35",
     actions: ["Categorize expenses", "Set budget alert", "Match receipts", "Generate report"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Brex Beast, an AI assistant for Brex. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "plaid-connect-beast",
@@ -1891,6 +2035,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#00B4D8",
     actions: ["Sync transactions", "Analyze cash flow", "Check balances", "Score health"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Plaid Connect Beast, an AI assistant for Plaid. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "twitch-beast",
@@ -1915,6 +2061,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#9146FF",
     actions: ["Create clip", "Send alert", "Moderate chat", "Analyze stream"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Twitch Beast, an AI assistant for Twitch. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "discord-pro-beast",
@@ -1939,6 +2087,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#5865F2",
     actions: ["Moderate server", "Assign roles", "Send announcement", "Welcome member"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Discord Pro Beast, an AI assistant for Discord. Help users accomplish their goals efficiently and effectively.",
   },
   {
     slug: "segment-beast",
@@ -1961,6 +2111,8 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#52BD94",
     actions: ["Route events", "Create audience", "Validate schema", "Monitor quality"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Segment Beast, a customer data assistant. Help teams unify customer data.",
   },
   {
     slug: "webflow-beast",
@@ -1985,6 +2137,8 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#4353FF",
     actions: ["Update CMS", "Publish site", "Process order", "Manage assets"],
+  tools: ["github.list_repos"],
+  systemPrompt: "You are Webflow Beast, an AI assistant for Webflow. Help users accomplish their goals efficiently and effectively.",
   },
 ];
 
