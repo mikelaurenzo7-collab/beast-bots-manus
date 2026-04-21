@@ -6,8 +6,8 @@ import { z } from "zod";
  * Avoids a third-party dependency; extend as new Zod types are needed.
  */
 export function zodToJsonSchema(schema: z.ZodType<unknown>): Record<string, unknown> {
-  const def = (schema as unknown as { _def: { typeName: string } })._def;
-  const typeName = def.typeName;
+  const def = (schema as unknown as { _def: { typeName?: string; type?: string } })._def;
+  const typeName = def.typeName || def.type;
 
   switch (typeName) {
     case "ZodString": {
@@ -22,12 +22,14 @@ export function zodToJsonSchema(schema: z.ZodType<unknown>): Record<string, unkn
       const values = (def as unknown as { values: string[] }).values;
       return { type: "string", enum: values };
     }
-    case "ZodArray": {
-      const inner = (def as unknown as { type: z.ZodType<unknown> }).type;
-      return { type: "array", items: zodToJsonSchema(inner) };
+    case "ZodArray":
+    case "array": {
+      const inner = (def as unknown as { type?: z.ZodType<unknown>; items?: z.ZodType<unknown> }).type || (def as unknown as { items: z.ZodType<unknown> }).items;
+      return { type: "array", items: inner ? zodToJsonSchema(inner) : {} };
     }
-    case "ZodObject": {
-      const shape = (schema as unknown as { shape: Record<string, z.ZodType<unknown>> }).shape;
+    case "ZodObject":
+    case "object": {
+      const shape = (schema as unknown as { shape?: Record<string, z.ZodType<unknown>> }).shape || (def as unknown as { shape: Record<string, z.ZodType<unknown>> }).shape;
       const properties: Record<string, unknown> = {};
       const required: string[] = [];
       for (const [key, value] of Object.entries(shape)) {
@@ -47,10 +49,13 @@ export function zodToJsonSchema(schema: z.ZodType<unknown>): Record<string, unkn
       return result;
     }
     case "ZodOptional":
+    case "optional":
     case "ZodDefault":
-    case "ZodNullable": {
-      const inner = (def as unknown as { innerType: z.ZodType<unknown> }).innerType;
-      return zodToJsonSchema(inner);
+    case "default":
+    case "ZodNullable":
+    case "nullable": {
+      const inner = (def as unknown as { innerType?: z.ZodType<unknown>; type?: z.ZodType<unknown> }).innerType || (def as unknown as { type: z.ZodType<unknown> }).type;
+      return inner ? zodToJsonSchema(inner) : {};
     }
     default:
       return {};

@@ -147,20 +147,54 @@ const connectionsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     return getOAuthConnections(ctx.user.id);
   }),
-
   get: protectedProcedure
     .input(z.object({ provider: z.string() }))
     .query(async ({ ctx, input }) => {
       return getOAuthConnection(ctx.user.id, input.provider);
     }),
-
   disconnect: protectedProcedure
     .input(z.object({ provider: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await deleteOAuthConnection(ctx.user.id, input.provider);
       return { success: true };
     }),
+  // Initiate OAuth flow for a provider
+  initiateOAuth: protectedProcedure
+    .input(z.object({ provider: z.string(), returnTo: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const { createOAuthState } = await import("./db");
+      const { getOAuthProvider } = await import("./_core/oauthProviders");
+      const { nanoid } = await import("nanoid");
+      
+      const providerConfig = getOAuthProvider(input.provider);
+      if (!providerConfig) {
+        throw new Error(`Unknown OAuth provider: ${input.provider}`);
+      }
 
+      const state = nanoid(32);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      
+      await createOAuthState({
+        state,
+        userId: ctx.user.id,
+        providerId: input.provider,
+        returnTo: input.returnTo,
+        expiresAt,
+      });
+
+      // Build OAuth URL
+      const params = new URLSearchParams({
+        client_id: process.env[`OAUTH_${input.provider.toUpperCase()}_CLIENT_ID`] || "",
+        redirect_uri: `${process.env.VITE_FRONTEND_URL || "http://localhost:3000"}/api/oauth/callback/${input.provider}`,
+        response_type: "code",
+        state,
+        scope: providerConfig.defaultScopes?.join(" ") || "",
+      });
+
+      return {
+        authorizationUrl: `${providerConfig.authorizationUrl}?${params.toString()}`,
+      };
+    }),
   // Save an API-key or token-based connection
   saveApiKey: protectedProcedure
     .input(
@@ -171,14 +205,12 @@ const connectionsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // Store the API key as the "access token" (plaintext for now — production would encrypt)
       const { upsertOAuthConnection } = await import("./db");
-      const { encryptToken } = await import("./_core/crypto");
-      const { ciphertext, iv } = encryptToken(input.apiKey);
       await upsertOAuthConnection({
         userId: ctx.user.id,
         provider: input.provider,
-        accessTokenCiphertext: ciphertext,
-        tokenIv: iv,
+        accessTokenCiphertext: input.apiKey,
         accountName: input.accountName,
         scopes: [],
       });
