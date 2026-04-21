@@ -1,0 +1,4 @@
+node_modules
+dist
+.bot-boss-data
+.env
