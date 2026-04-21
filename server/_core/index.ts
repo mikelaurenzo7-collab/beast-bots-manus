@@ -1,66 +1,50 @@
 import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
-import net from "net";
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "./oauth";
-import { registerStorageProxy } from "./storageProxy";
-import { appRouter } from "../routers";
-import { createContext } from "./context";
-import { serveStatic, setupVite } from "./vite";
+import { ENV } from "./env";
+import { authRouter } from "../api/auth";
+import { bossRouter } from "../api/boss";
+import { connectionsRouter } from "../api/connections";
+import { recipesRouter } from "../api/recipes";
+import { runsRouter } from "../api/runs";
+import { notesRouter } from "../api/notes";
+import { devicesRouter } from "../api/devices";
+import { errorHandler } from "./errors";
+import { requestAuth } from "./middleware";
+// Side-effect: register tools.
+import "../runtime";
 
-function isPortAvailable(port: number): Promise<boolean> {
-  return new Promise(resolve => {
-    const server = net.createServer();
-    server.listen(port, () => {
-      server.close(() => resolve(true));
-    });
-    server.on("error", () => resolve(false));
-  });
-}
-
-async function findAvailablePort(startPort: number = 3000): Promise<number> {
-  for (let port = startPort; port < startPort + 20; port++) {
-    if (await isPortAvailable(port)) {
-      return port;
-    }
-  }
-  throw new Error(`No available port found starting from ${startPort}`);
-}
-
-async function startServer() {
+async function main() {
   const app = express();
+  app.disable("x-powered-by");
+  app.set("trust proxy", true);
+  app.use(express.json({ limit: "2mb" }));
+
+  app.get("/health", (_req, res) => {
+    res.json({ ok: true, service: "bot-boss", time: new Date().toISOString() });
+  });
+
+  // Public endpoints
+  app.use("/v1/auth", authRouter);
+
+  // All other v1 routes require a verified session bearer token.
+  app.use("/v1", requestAuth);
+  app.use("/v1/boss", bossRouter);
+  app.use("/v1/connections", connectionsRouter);
+  app.use("/v1/recipes", recipesRouter);
+  app.use("/v1/runs", runsRouter);
+  app.use("/v1/notes", notesRouter);
+  app.use("/v1/devices", devicesRouter);
+
+  app.use(errorHandler);
+
   const server = createServer(app);
-  // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
-  registerStorageProxy(app);
-  registerOAuthRoutes(app);
-  // tRPC API
-  app.use(
-    "/api/trpc",
-    createExpressMiddleware({
-      router: appRouter,
-      createContext,
-    })
-  );
-  // development mode uses Vite, production mode uses static files
-  if (process.env.NODE_ENV === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
-  const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
-
-  if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
-  }
-
-  server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+  server.listen(ENV.port, () => {
+    console.log(`[bot-boss] listening on http://localhost:${ENV.port}`);
   });
 }
 
-startServer().catch(console.error);
+main().catch((err) => {
+  console.error("[bot-boss] fatal:", err);
+  process.exit(1);
+});

@@ -1,9 +1,6 @@
-// Side-effect imports register each provider's tools with the registry.
-// Keep these imports here so `server/runtime` is the single entry point.
-import "./tools/github";
-import "./tools/slack";
-import "./tools/notion";
+// Side-effect: register all built-in tools.
+import "./tools";
 
-export { getTool, getToolsForBeast, listToolNames, toolsToLlmSchema } from "./registry";
-export { executeBeast } from "./execute";
+export { executeBoss, type ExecuteParams, type ExecuteResult, type ToolRun } from "./execute";
+export { getTool, listToolNames, registerTool } from "./registry";
 export type { Tool, ToolContext, ToolResult } from "./types";

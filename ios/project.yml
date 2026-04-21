@@ -1,0 +1,76 @@
+# XcodeGen project spec — run `xcodegen generate` in this directory
+# to produce `BotBoss.xcodeproj`.
+#
+# Prereqs: brew install xcodegen
+
+name: BotBoss
+options:
+  bundleIdPrefix: com.botboss
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.10"
+    DEVELOPMENT_LANGUAGE: en
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+
+targets:
+  BotBoss:
+    type: application
+    platform: iOS
+    sources:
+      - path: BotBoss
+        excludes:
+          - "**/*.md"
+    resources:
+      - path: BotBoss/Resources/Assets.xcassets
+      - path: BotBoss/Resources/PrivacyInfo.xcprivacy
+    info:
+      path: BotBoss/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Bot Boss
+        CFBundleName: BotBoss
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UIBackgroundModes:
+          - remote-notification
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+        # ATT prompt only appears if we call ATTrackingManager; copy is required
+        # even when unused so App Review doesn't reject on a placeholder.
+        NSUserTrackingUsageDescription: >-
+          Bot Boss does not track you. This permission is only requested if you
+          opt into ad-attribution features in a future update.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.botboss.BotBoss
+        CODE_SIGN_ENTITLEMENTS: BotBoss/Resources/BotBoss.entitlements
+        SUPPORTS_MACCATALYST: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Automatic
+    entitlements:
+      path: BotBoss/Resources/BotBoss.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+        aps-environment: development

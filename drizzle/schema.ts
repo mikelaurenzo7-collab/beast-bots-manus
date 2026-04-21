@@ -7,17 +7,18 @@ import {
   varchar,
   json,
   boolean,
-  bigint,
 } from "drizzle-orm/mysql-core";
 
+/**
+ * Users — Sign in with Apple is the only identity for the iOS app.
+ * `appleSub` is Apple's stable `sub` claim from the identity token.
+ */
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
-  openId: varchar("openId", { length: 64 }).notNull().unique(),
-  name: text("name"),
+  appleSub: varchar("appleSub", { length: 128 }).notNull().unique(),
   email: varchar("email", { length: 320 }),
-  loginMethod: varchar("loginMethod", { length: 64 }),
+  name: varchar("name", { length: 256 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
-  avatarUrl: text("avatarUrl"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -26,7 +27,7 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// OAuth connections — encrypted tokens per provider per user
+/** OAuth connections for user-owned third-party tools (GitHub, Google, etc.). */
 export const oauthConnections = mysqlTable("oauth_connections", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -38,81 +39,95 @@ export const oauthConnections = mysqlTable("oauth_connections", {
   expiresAt: timestamp("expiresAt"),
   accountId: varchar("accountId", { length: 256 }),
   accountName: varchar("accountName", { length: 256 }),
-  metadata: json("metadata").$type<Record<string, unknown>>(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type OAuthConnection = typeof oauthConnections.$inferSelect;
 
-// CSRF state for OAuth flows
+/** CSRF state for initiating OAuth flows from the iOS app's in-app browser. */
 export const oauthState = mysqlTable("oauth_state", {
   id: int("id").autoincrement().primaryKey(),
   state: varchar("state", { length: 128 }).notNull().unique(),
   userId: int("userId").notNull(),
   providerId: varchar("providerId", { length: 64 }).notNull(),
-  returnTo: text("returnTo"),
   used: boolean("used").default(false).notNull(),
   expiresAt: timestamp("expiresAt").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-// Installations — which agents each user has installed
-export const installations = mysqlTable("installations", {
+/** User-authored recipes: a saved prompt + tool allowlist, optionally scheduled. */
+export const recipes = mysqlTable("recipes", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
-  agentSlug: varchar("agentSlug", { length: 128 }).notNull(),
-  status: mysqlEnum("status", ["active", "paused", "uninstalled"]).default("active").notNull(),
-  connectionId: int("connectionId"),
-  customizations: json("customizations").$type<Record<string, unknown>>(),
+  name: varchar("name", { length: 256 }).notNull(),
+  prompt: text("prompt").notNull(),
+  tools: json("tools").$type<string[]>().notNull(),
+  triggerKind: mysqlEnum("triggerKind", ["manual", "schedule", "webhook"])
+    .default("manual")
+    .notNull(),
+  triggerCron: varchar("triggerCron", { length: 128 }),
+  archived: boolean("archived").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
-export type Installation = typeof installations.$inferSelect;
+export type Recipe = typeof recipes.$inferSelect;
 
-// Agent runs — action audit log
-export const agentRuns = mysqlTable("agent_runs", {
+/** One run of the Boss — either ad-hoc chat or a recipe execution. */
+export const runs = mysqlTable("runs", {
   id: int("id").autoincrement().primaryKey(),
-  installationId: int("installationId").notNull(),
   userId: int("userId").notNull(),
-  agentSlug: varchar("agentSlug", { length: 128 }).notNull(),
-  action: varchar("action", { length: 256 }).notNull(),
-  status: mysqlEnum("status", ["running", "success", "error", "demo"]).default("running").notNull(),
+  recipeId: int("recipeId"),
+  status: mysqlEnum("status", ["running", "success", "error"])
+    .default("running")
+    .notNull(),
   inputSummary: text("inputSummary"),
   outputSummary: text("outputSummary"),
   tokensUsed: int("tokensUsed").default(0),
   durationMs: int("durationMs").default(0),
   errorMessage: text("errorMessage"),
+  toolCalls: json("toolCalls").$type<
+    { name: string; input: unknown; ok: boolean; summary: string }[]
+  >(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export type AgentRun = typeof agentRuns.$inferSelect;
+export type Run = typeof runs.$inferSelect;
 
-// In-app notifications
-export const notifications = mysqlTable("notifications", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
-  type: mysqlEnum("type", ["run_complete", "run_error", "new_bot", "system"]).notNull(),
-  title: varchar("title", { length: 256 }).notNull(),
-  body: text("body"),
-  agentSlug: varchar("agentSlug", { length: 128 }),
-  read: boolean("read").default(false).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export type Notification = typeof notifications.$inferSelect;
-
-// Chat messages for the LLM assistant.
-// `agentSlug` scopes the conversation to a single beast's chat thread;
-// null = the global BeastBot concierge chat.
+/** Chat history — one global thread per user (the Boss has one mind). */
 export const chatMessages = mysqlTable("chat_messages", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
-  agentSlug: varchar("agentSlug", { length: 128 }),
   role: mysqlEnum("role", ["user", "assistant"]).notNull(),
   content: text("content").notNull(),
+  runId: int("runId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type ChatMessage = typeof chatMessages.$inferSelect;
+
+/** Lightweight user notes, usable by the Boss via the `notes.*` tools. */
+export const notes = mysqlTable("notes", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Note = typeof notes.$inferSelect;
+
+/** APNs device tokens for push notifications on run completion. */
+export const deviceTokens = mysqlTable("device_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  deviceToken: varchar("deviceToken", { length: 256 }).notNull().unique(),
+  bundleId: varchar("bundleId", { length: 128 }).notNull(),
+  environment: mysqlEnum("environment", ["sandbox", "production"]).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DeviceToken = typeof deviceTokens.$inferSelect;

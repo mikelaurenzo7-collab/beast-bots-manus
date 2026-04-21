@@ -1,7 +1,6 @@
-import type { Beast } from "../../shared/agents";
 import { invokeLLM, type Message, type ToolCall } from "../_core/llm";
-import { getDecryptedToken } from "../db";
-import { getTool, getToolsForBeast, toolsToLlmSchema } from "./registry";
+import { getDecryptedAccessToken } from "../db";
+import { getTool, getToolsForUser, toolsToLlmSchema } from "./registry";
 import type { Tool, ToolResult } from "./types";
 
 /** One step of the tool-use loop, surfaced so the caller can persist it. */
@@ -11,17 +10,14 @@ export type ToolRun = {
   input: unknown;
   result: ToolResult;
   durationMs: number;
-  tokensUsed: number;
 };
 
 export type ExecuteParams = {
   userId: number;
-  beast: Beast;
-  /** Prior conversation turns (user/assistant) — pass [] for a fresh conversation. */
+  systemPrompt: string;
+  allowedTools: string[];
   history: { role: "user" | "assistant"; content: string }[];
-  /** The current user turn to answer. */
   message: string;
-  /** Max tool-call rounds before we force the model to finalize. Default 5. */
   maxTurns?: number;
 };
 
@@ -32,56 +28,46 @@ export type ExecuteResult = {
 };
 
 /**
- * Run a beast turn end-to-end: send the user's message to the LLM along with
- * the beast's allowed tools, execute any tool_calls the model requests against
- * real provider APIs, feed results back, and loop until the model returns a
- * final text reply (or we hit the turn limit).
+ * Run one Boss turn end-to-end: send the message + allowed tools to the LLM,
+ * execute any tool_calls, feed results back, loop until a plain-text answer
+ * (or we hit maxTurns). Missing OAuth tokens just disable the affected tool;
+ * built-in tools always run.
  */
-export async function executeBeast({
+export async function executeBoss({
   userId,
-  beast,
+  systemPrompt,
+  allowedTools,
   history,
   message,
   maxTurns = 5,
 }: ExecuteParams): Promise<ExecuteResult> {
-  if (!beast.systemPrompt || !beast.tools) {
-    throw new Error(`Beast ${beast.slug} has no persona config — cannot execute live`);
-  }
-
-  // Gather connected providers for this user across all tools the beast is allowed to use.
-  const requiredProviders = new Set<string>();
-  for (const name of beast.tools) {
-    const tool = getTool(name);
-    if (tool) requiredProviders.add(tool.provider);
-  }
+  const tools = allowedTools
+    .map((n) => getTool(n))
+    .filter((t): t is Tool<unknown> => !!t);
 
   const tokenByProvider = new Map<string, string>();
-  const connectedProviders = new Set<string>();
-  for (const provider of requiredProviders) {
-    const fetched = await getDecryptedToken(userId, provider);
-    if (fetched) {
-      tokenByProvider.set(provider, fetched.token);
-      connectedProviders.add(provider);
-    }
+  const missingProviders: string[] = [];
+  const providers = new Set(tools.map((t) => t.provider));
+  for (const provider of providers) {
+    if (provider === "builtin") continue;
+    const tok = await getDecryptedAccessToken(userId, provider);
+    if (tok) tokenByProvider.set(provider, tok);
+    else missingProviders.push(provider);
   }
 
-  const availableTools = getToolsForBeast(beast.tools, connectedProviders);
-  const llmTools = toolsToLlmSchema(availableTools);
+  const usable = getToolsForUser(tools, tokenByProvider);
+  const llmTools = toolsToLlmSchema(usable);
 
-  // Build the running message list the LLM sees on every round.
   const messages: Message[] = [
-    { role: "system", content: beast.systemPrompt },
+    { role: "system", content: systemPrompt },
     ...history.map((h) => ({ role: h.role, content: h.content }) as Message),
     { role: "user", content: message },
   ];
 
-  // If the beast has no usable tools (user hasn't connected), inject a hint so
-  // the LLM can tell the user what to do rather than pretend.
-  if (availableTools.length === 0 && requiredProviders.size > 0) {
-    const missing = Array.from(requiredProviders).join(", ");
+  if (missingProviders.length > 0) {
     messages.splice(1, 0, {
       role: "system",
-      content: `NOTE: The user has not connected the following required provider(s): ${missing}. Tell them to connect in Settings before you can take action.`,
+      content: `Note: these connections are not set up yet and their tools are unavailable: ${missingProviders.join(", ")}. If one is needed, tell the user to connect it in Settings.`,
     });
   }
 
@@ -104,14 +90,11 @@ export async function executeBeast({
         typeof choice?.content === "string"
           ? choice.content
           : Array.isArray(choice?.content)
-            ? choice.content
-                .map((c) => (c.type === "text" ? c.text : ""))
-                .join("")
+            ? choice.content.map((c) => (c.type === "text" ? c.text : "")).join("")
             : "";
       break;
     }
 
-    // Append the assistant's tool-call message so the LLM sees its own calls.
     messages.push({
       role: "assistant",
       content: typeof choice.content === "string" ? choice.content : "",
@@ -119,7 +102,7 @@ export async function executeBeast({
     });
 
     for (const call of toolCalls) {
-      const run = await executeOneToolCall(call, availableTools, tokenByProvider, userId);
+      const run = await executeOneToolCall(call, usable, tokenByProvider, userId);
       runs.push(run);
       messages.push({
         role: "tool",
@@ -132,9 +115,9 @@ export async function executeBeast({
   if (!finalReply) {
     finalReply =
       runs.length > 0
-        ? `Finished after ${runs.length} tool call${runs.length === 1 ? "" : "s"}. ` +
+        ? `Done after ${runs.length} tool call${runs.length === 1 ? "" : "s"}. ` +
           runs.map((r) => r.result.summary).join(" ")
-        : "I couldn't complete that request — please try rephrasing.";
+        : "I couldn't complete that — try rephrasing.";
   }
 
   return { reply: finalReply, runs, tokensUsed: totalTokens };
@@ -155,21 +138,16 @@ async function executeOneToolCall(
       toolName: name,
       label: name,
       input: null,
-      result: {
-        ok: false,
-        summary: `Tool "${name}" is not available`,
-        error: "Tool not registered or provider not connected",
-      },
+      result: { ok: false, summary: `Tool "${name}" unavailable` },
       durationMs: Date.now() - start,
-      tokensUsed: 0,
     };
   }
 
-  let parsedArgs: unknown;
+  let parsedArgs: unknown = {};
   try {
-    parsedArgs = call.function.arguments ? JSON.parse(call.function.arguments) : {};
+    if (call.function.arguments) parsedArgs = JSON.parse(call.function.arguments);
   } catch {
-    parsedArgs = {};
+    /* fall through with empty args */
   }
 
   const validated = tool.input.safeParse(parsedArgs);
@@ -184,12 +162,11 @@ async function executeOneToolCall(
         error: validated.error.message,
       },
       durationMs: Date.now() - start,
-      tokensUsed: 0,
     };
   }
 
-  const token = tokenByProvider.get(tool.provider);
-  if (!token) {
+  const token = tool.provider === "builtin" ? "" : tokenByProvider.get(tool.provider);
+  if (tool.provider !== "builtin" && !token) {
     return {
       toolName: name,
       label: tool.label,
@@ -200,17 +177,15 @@ async function executeOneToolCall(
         error: `Connect ${tool.provider} in Settings to use this tool.`,
       },
       durationMs: Date.now() - start,
-      tokensUsed: 0,
     };
   }
 
-  const result = await tool.run({ userId, token, input: validated.data });
+  const result = await tool.run({ userId, token: token ?? "", input: validated.data });
   return {
     toolName: name,
     label: tool.label,
     input: validated.data,
     result,
     durationMs: Date.now() - start,
-    tokensUsed: 0,
   };
 }

@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:
 import { ENV } from "./env";
 
 const ALGO = "aes-256-gcm";
-const KEY_SALT = "beast-bots-v1";
+const KEY_SALT = "bot-boss-v1";
 const IV_BYTES = 12;
 
 let cachedKey: Buffer | null = null;

@@ -1,8 +1,0 @@
-{
-  "query": "ALTER TABLE `installations` MODIFY COLUMN `customizations` json",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2pd8iEvgor3DQ5X.root --database 8eLdTURA5qP9yzxNMhD5Qk --execute ALTER TABLE `installations` MODIFY COLUMN `customizations` json",
-  "returncode": 1,
-  "logs": [
-    "ERROR 1146 (42S02) at line 1: Table '8eldtura5qp9yzxnmhd5qk.installations' doesn't exist"
-  ]
-}
