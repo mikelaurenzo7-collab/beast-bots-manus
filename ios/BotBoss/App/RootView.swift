@@ -18,14 +18,14 @@ struct RootView: View {
 struct MainTabView: View {
     var body: some View {
         TabView {
-            ChatView()
-                .tabItem { Label("Boss", systemImage: "bolt.fill") }
+            BotsCatalogView()
+                .tabItem { Label("Bots", systemImage: "square.grid.2x2.fill") }
 
             RecipesView()
                 .tabItem { Label("Recipes", systemImage: "list.bullet.rectangle") }
 
             HistoryView()
-                .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                .tabItem { Label("Activity", systemImage: "clock.arrow.circlepath") }
 
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }

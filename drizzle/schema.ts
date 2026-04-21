@@ -74,10 +74,11 @@ export const recipes = mysqlTable("recipes", {
 
 export type Recipe = typeof recipes.$inferSelect;
 
-/** One run of the Boss — either ad-hoc chat or a recipe execution. */
+/** One run of a bot — either ad-hoc chat or a recipe execution. */
 export const runs = mysqlTable("runs", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  botSlug: varchar("botSlug", { length: 64 }).default("boss").notNull(),
   recipeId: int("recipeId"),
   status: mysqlEnum("status", ["running", "success", "error"])
     .default("running")
@@ -95,10 +96,11 @@ export const runs = mysqlTable("runs", {
 
 export type Run = typeof runs.$inferSelect;
 
-/** Chat history — one global thread per user (the Boss has one mind). */
+/** Chat history — one thread per (user, bot). */
 export const chatMessages = mysqlTable("chat_messages", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  botSlug: varchar("botSlug", { length: 64 }).default("boss").notNull(),
   role: mysqlEnum("role", ["user", "assistant"]).notNull(),
   content: text("content").notNull(),
   runId: int("runId"),

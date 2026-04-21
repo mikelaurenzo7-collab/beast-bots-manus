@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { BOSS_DEFAULT_TOOLS } from "../../shared/boss";
+import { BOSS } from "../../shared/bots";
 import { createRecipe, getRecipe, listRecipes, updateRecipe } from "../db";
 import { HttpError, requireUserId } from "../_core/middleware";
 
@@ -47,7 +47,7 @@ recipesRouter.post("/", async (req, res, next) => {
       userId,
       name: body.name,
       prompt: body.prompt,
-      tools: body.tools ?? BOSS_DEFAULT_TOOLS,
+      tools: body.tools ?? BOSS.tools,
       triggerKind: body.triggerKind,
       triggerCron: body.triggerCron,
     });

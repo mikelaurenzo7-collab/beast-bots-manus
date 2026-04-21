@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { BOSS } from "../../shared/boss";
+import { BOTS, BOSS, getBot } from "../../shared/bots";
 import { executeBoss } from "../runtime";
 import {
   appendChat,
@@ -14,6 +14,7 @@ import { HttpError, requireUserId } from "../_core/middleware";
 export const bossRouter = Router();
 
 const runSchema = z.object({
+  botSlug: z.string().optional(),
   message: z.string().min(1).max(16_000),
   recipeId: z.number().int().optional(),
   useHistory: z.boolean().optional(),
@@ -22,38 +23,38 @@ const runSchema = z.object({
 /**
  * POST /v1/boss/run
  *
- * Body: { message, recipeId?, useHistory? }
+ * Body: { botSlug?, message, recipeId?, useHistory? }
+ * Default botSlug = "boss" (the generalist).
  *
- * Returns: { reply, toolCalls: [...], runId }
- *
- * When `recipeId` is provided, the recipe's prompt is prepended as extra
- * context and its tool allowlist is used; otherwise the global Boss config.
+ * Returns: { reply, toolCalls: [...], runId, botSlug, recipeName? }
  */
 bossRouter.post("/run", async (req, res, next) => {
   try {
     const userId = requireUserId(req);
     const body = runSchema.parse(req.body);
+    const bot = getBot(body.botSlug ?? "boss") ?? BOSS;
 
-    let systemPrompt = BOSS.systemPrompt;
-    let tools = BOSS.tools;
+    let systemPrompt = bot.systemPrompt;
+    let tools = bot.tools;
     let recipeName: string | undefined;
 
     if (body.recipeId !== undefined) {
       const recipe = await getRecipe(userId, body.recipeId);
       if (!recipe) throw new HttpError(404, "Recipe not found");
-      systemPrompt = `${BOSS.systemPrompt}\n\nRecipe: ${recipe.name}\n${recipe.prompt}`;
+      systemPrompt = `${bot.systemPrompt}\n\nRecipe: ${recipe.name}\n${recipe.prompt}`;
       tools = recipe.tools;
       recipeName = recipe.name;
     }
 
     const history = body.useHistory
-      ? (await loadChat(userId, 20))
+      ? (await loadChat(userId, bot.slug, 20))
           .reverse()
           .map((m) => ({ role: m.role, content: m.content }))
       : [];
 
     const run = await createRun({
       userId,
+      botSlug: bot.slug,
       recipeId: body.recipeId,
       inputSummary: truncate(body.message, 512),
     });
@@ -82,9 +83,10 @@ bossRouter.post("/run", async (req, res, next) => {
         })),
       });
 
-      await appendChat({ userId, role: "user", content: body.message });
+      await appendChat({ userId, botSlug: bot.slug, role: "user", content: body.message });
       await appendChat({
         userId,
+        botSlug: bot.slug,
         role: "assistant",
         content: result.reply,
         runId: run.id,
@@ -100,6 +102,7 @@ bossRouter.post("/run", async (req, res, next) => {
           durationMs: r.durationMs,
         })),
         runId: run.id,
+        botSlug: bot.slug,
         recipeName,
       });
     } catch (err) {
@@ -116,12 +119,14 @@ bossRouter.post("/run", async (req, res, next) => {
   }
 });
 
-/** GET /v1/boss/chat  → latest chat history, newest-first. */
+/** GET /v1/boss/chat?botSlug=...  → thread history, newest-first. */
 bossRouter.get("/chat", async (req, res, next) => {
   try {
     const userId = requireUserId(req);
-    const rows = await loadChat(userId, 100);
+    const botSlug = (req.query.botSlug as string) ?? "boss";
+    const rows = await loadChat(userId, botSlug, 100);
     res.json({
+      botSlug,
       messages: rows.map((m) => ({
         id: m.id,
         role: m.role,
@@ -133,6 +138,21 @@ bossRouter.get("/chat", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+/** GET /v1/boss/catalog  → the Money Bots catalog + connection status. */
+bossRouter.get("/catalog", async (_req, res) => {
+  res.json({
+    bots: BOTS.map((b) => ({
+      slug: b.slug,
+      name: b.name,
+      tagline: b.tagline,
+      category: b.category,
+      icon: b.icon,
+      requiredProviders: b.requiredProviders,
+      revenueProposition: b.revenueProposition,
+    })),
+  });
 });
 
 function truncate(s: string, max: number): string {

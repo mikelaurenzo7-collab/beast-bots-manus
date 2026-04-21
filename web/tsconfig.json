@@ -1,0 +1,21 @@
+{
+  "include": ["src/**/*", "../shared/**/*"],
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@shared/*": ["../shared/*"]
+    },
+    "types": ["vite/client"]
+  }
+}

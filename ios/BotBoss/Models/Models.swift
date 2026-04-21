@@ -107,3 +107,18 @@ struct NotesResponse: Codable { let notes: [Note] }
 struct NoteResponse: Codable { let note: Note }
 
 struct OKResponse: Codable { let ok: Bool }
+
+struct BotSummary: Codable, Hashable, Identifiable {
+    var id: String { slug }
+    let slug: String
+    let name: String
+    let tagline: String
+    let category: String
+    let icon: String
+    let requiredProviders: [String]
+    let revenueProposition: String
+}
+
+struct BotCatalogResponse: Codable {
+    let bots: [BotSummary]
+}

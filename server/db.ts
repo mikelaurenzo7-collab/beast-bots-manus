@@ -251,12 +251,14 @@ export async function updateRecipe(
 
 export async function createRun(params: {
   userId: number;
+  botSlug: string;
   recipeId?: number;
   inputSummary: string;
 }) {
   const db = getDb();
   await db.insert(runs).values({
     userId: params.userId,
+    botSlug: params.botSlug,
     recipeId: params.recipeId ?? null,
     inputSummary: params.inputSummary,
     status: "running",
@@ -290,29 +292,42 @@ export async function listRuns(userId: number, limit = 50) {
 
 export async function appendChat(params: {
   userId: number;
+  botSlug: string;
   role: "user" | "assistant";
   content: string;
   runId?: number;
 }) {
   await getDb().insert(chatMessages).values({
     userId: params.userId,
+    botSlug: params.botSlug,
     role: params.role,
     content: params.content,
     runId: params.runId ?? null,
   });
 }
 
-export async function loadChat(userId: number, limit = 100) {
+export async function loadChat(userId: number, botSlug: string, limit = 100) {
   return getDb()
     .select()
     .from(chatMessages)
-    .where(eq(chatMessages.userId, userId))
+    .where(
+      and(eq(chatMessages.userId, userId), eq(chatMessages.botSlug, botSlug))
+    )
     .orderBy(desc(chatMessages.createdAt))
     .limit(limit);
 }
 
-export async function clearChat(userId: number) {
-  await getDb().delete(chatMessages).where(eq(chatMessages.userId, userId));
+export async function clearChat(userId: number, botSlug?: string) {
+  const db = getDb();
+  if (botSlug) {
+    await db
+      .delete(chatMessages)
+      .where(
+        and(eq(chatMessages.userId, userId), eq(chatMessages.botSlug, botSlug))
+      );
+  } else {
+    await db.delete(chatMessages).where(eq(chatMessages.userId, userId));
+  }
 }
 
 // ─── Notes (built-in tool storage) ────────────────────────────────────────────
