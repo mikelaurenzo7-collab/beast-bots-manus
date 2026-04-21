@@ -41,3 +41,36 @@
 - [x] Vitest tests: 23 tests passing (auth.logout + beast-bots feature tests)
 - [x] Zero TypeScript errors
 - [x] Google Fonts (Fraunces + Inter) loaded in index.html
+
+
+## Phase 2: Workflow Composer & Templates
+
+### OAuth Credential Management
+- [ ] Real OAuth provider credential input forms in Settings
+- [ ] Encrypted credential storage (AES-256-GCM)
+- [ ] Provider-specific scopes and permissions UI
+- [ ] Credential validation and test connection button
+- [ ] Revoke/disconnect functionality
+
+### Workflow Composer
+- [ ] Workflow canvas page with React Flow or similar
+- [ ] Drag-and-drop agent nodes
+- [ ] Connection lines between agents (output → input)
+- [ ] Node configuration panels (agent selection, parameter mapping)
+- [ ] Workflow save/load/delete operations
+- [ ] Workflow execution engine (multi-agent orchestration)
+- [ ] Workflow run history and status tracking
+
+### Agent Templates Library
+- [ ] 10+ pre-configured workflow templates (GitHub PR → Slack → Linear, etc.)
+- [ ] Template preview cards with visual workflow diagram
+- [ ] One-click template install on dashboard
+- [ ] Template customization UI (agent selection, credential mapping)
+- [ ] Template rating and usage stats
+- [ ] Community template sharing (future)
+
+### Testing & Polish
+- [ ] Vitest tests for workflow execution
+- [ ] Error handling and retry logic
+- [ ] Loading states and animations
+- [ ] Mobile-responsive canvas

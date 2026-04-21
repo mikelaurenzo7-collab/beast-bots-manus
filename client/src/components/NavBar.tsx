@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
-import { Bell, Bot, LayoutDashboard, LogOut, Menu, MessageCircle, ShoppingBag, X } from "lucide-react";
+import { Bell, Bot, LayoutDashboard, LogOut, Menu, MessageCircle, ShoppingBag, X, Zap, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +23,8 @@ export default function NavBar() {
     ...(isAuthenticated
       ? [
           { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+          { href: "/templates", label: "Templates", icon: Zap },
+          { href: "/composer", label: "Composer", icon: Zap },
           { href: "/chat", label: "BeastBot AI", icon: MessageCircle },
         ]
       : []),

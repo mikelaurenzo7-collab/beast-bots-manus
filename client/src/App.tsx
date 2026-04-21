@@ -14,6 +14,8 @@ import Settings from "./pages/Settings";
 import Activity from "./pages/Activity";
 import Notifications from "./pages/Notifications";
 import Chat from "./pages/Chat";
+import WorkflowComposer from "./pages/WorkflowComposer";
+import Templates from "./pages/Templates";
 
 /** Wraps a page component and redirects to login if the user is not authenticated. */
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -63,6 +65,12 @@ function Router() {
       </Route>
       <Route path="/chat">
         {() => <ProtectedRoute component={Chat} />}
+      </Route>
+      <Route path="/composer">
+        {() => <ProtectedRoute component={WorkflowComposer} />}
+      </Route>
+      <Route path="/templates">
+        {() => <ProtectedRoute component={Templates} />}
       </Route>
 
       <Route path="/404" component={NotFound} />
