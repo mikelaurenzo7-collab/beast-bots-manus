@@ -1,0 +1,64 @@
+# Local dev stack: MySQL + backend + web.
+# Usage:  docker compose up
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: bot_boss
+      MYSQL_ROOT_PASSWORD: rootpw
+      MYSQL_USER: botboss
+      MYSQL_PASSWORD: botbosspw
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./drizzle/0000_bot_boss_init.sql:/docker-entrypoint-initdb.d/0000_init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpw"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  server:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://botboss:botbosspw@db:3306/bot_boss
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-please-change-me-32-chars-at-minimum}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-enc-key-also-32-chars-at-minimum-a}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-com.botboss.BotBoss}
+      FORGE_API_URL: ${FORGE_API_URL}
+      FORGE_API_KEY: ${FORGE_API_KEY}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      ALLOWED_ORIGINS: http://localhost:5173
+      # Provider creds — set via host env or leave blank to disable that bot
+      SHOPIFY_CLIENT_ID: ${SHOPIFY_CLIENT_ID:-}
+      SHOPIFY_CLIENT_SECRET: ${SHOPIFY_CLIENT_SECRET:-}
+      ETSY_KEYSTRING: ${ETSY_KEYSTRING:-}
+      ETSY_SHARED_SECRET: ${ETSY_SHARED_SECRET:-}
+      PINTEREST_CLIENT_ID: ${PINTEREST_CLIENT_ID:-}
+      PINTEREST_CLIENT_SECRET: ${PINTEREST_CLIENT_SECRET:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PRO_MONTHLY: ${STRIPE_PRICE_PRO_MONTHLY:-}
+      STRIPE_PRICE_PRO_YEARLY: ${STRIPE_PRICE_PRO_YEARLY:-}
+    ports:
+      - "3000:3000"
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    depends_on:
+      - server
+    environment:
+      VITE_API_BASE: http://localhost:3000
+    ports:
+      - "5173:80"
+
+volumes:
+  db_data:

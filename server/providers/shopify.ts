@@ -69,8 +69,46 @@ export const shopifyProvider: ProviderConfig = {
     if (!res.ok) return { accountId: p.shop };
     const data = (await res.json()) as { shop?: { id?: number; name?: string } };
     return {
-      accountId: data.shop?.id ? String(data.shop.id) : p.shop,
+      // Store the shop domain as accountId so we can resolve webhook → user.
+      accountId: p.shop,
       accountName: data.shop?.name ?? p.shop,
     };
+  },
+
+  /**
+   * Register webhooks we care about right after a successful connect.
+   * Shopify de-duplicates on (address, topic), so this is safe to re-run.
+   */
+  async postConnect(ctx) {
+    if (!ctx.shop || !ctx.publicBaseUrl) return;
+    const address = `${ctx.publicBaseUrl}/v1/webhooks/shopify`;
+    const topics = [
+      "orders/create",
+      "orders/cancelled",
+      "inventory_levels/update",
+      "app/uninstalled",
+    ];
+    for (const topic of topics) {
+      const res = await fetch(
+        `https://${ctx.shop}/admin/api/2024-10/webhooks.json`,
+        {
+          method: "POST",
+          headers: {
+            "X-Shopify-Access-Token": ctx.accessToken,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            webhook: { topic, address, format: "json" },
+          }),
+        }
+      );
+      // 201 on create, 422 when already registered (idempotency).
+      if (!res.ok && res.status !== 422) {
+        // Throwing here would prevent sign-in; caller logs+swallows instead.
+        throw new Error(
+          `Shopify webhook ${topic} register failed: ${res.status}`
+        );
+      }
+    }
   },
 };

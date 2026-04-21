@@ -134,6 +134,22 @@ oauthRouter.get("/:provider/callback", async (req, res, next) => {
       accountName: account.accountName,
     });
 
+    // Fire-and-forget postConnect (webhook registration, cache warming, etc.).
+    // Never block the user's redirect on these side effects.
+    if (provider.postConnect) {
+      provider
+        .postConnect({
+          userId: stateRow.userId,
+          accessToken: exchange.accessToken,
+          accountId: account.accountId ?? stateRow.shop ?? undefined,
+          shop: stateRow.shop ?? undefined,
+          publicBaseUrl: (await import("../_core/env")).ENV.publicBaseUrl,
+        })
+        .catch((err) =>
+          logger.warn("postConnect failed", { providerId, err: String(err) })
+        );
+    }
+
     const returnTo = stateRow.returnTo ?? "/connections?connected=" + providerId;
     res.redirect(302, returnTo);
   } catch (err) {

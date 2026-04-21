@@ -75,4 +75,33 @@ export const pinterestProvider: ProviderConfig = {
     const data = (await res.json()) as { username?: string };
     return { accountName: data.username };
   },
+
+  async refresh(refreshToken) {
+    const basic = Buffer.from(
+      `${ENV.pinterestClientId}:${ENV.pinterestClientSecret}`
+    ).toString("base64");
+    const body = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    });
+    const res = await fetch("https://api.pinterest.com/v5/oauth/token", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${basic}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+    });
+    if (!res.ok) throw new Error(`Pinterest refresh ${res.status}: ${await res.text()}`);
+    const data = (await res.json()) as {
+      access_token: string;
+      refresh_token?: string;
+      expires_in?: number;
+    };
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token ?? refreshToken,
+      expiresInSeconds: data.expires_in,
+    };
+  },
 };

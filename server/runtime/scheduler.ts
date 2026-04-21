@@ -6,10 +6,14 @@ import {
   createRun,
   finishRun,
   getDb,
+  listExpiringConnections,
+  saveConnection,
 } from "../db";
 import { executeBoss } from "./index";
 import { logger } from "../_core/logger";
 import { sendPushToUser } from "../_core/apns";
+import { decryptToken } from "../_core/crypto";
+import { getProvider } from "../providers";
 
 /**
  * Scheduled recipe runner.
@@ -71,6 +75,53 @@ async function tick() {
     }
   } catch (err) {
     logger.error("scheduler tick failed", { err: String(err) });
+  }
+
+  // Once every 15 minutes: rotate tokens that are about to expire.
+  if (minute % 15 === 0) {
+    rotateExpiringTokens().catch((err) =>
+      logger.error("token rotation failed", { err: String(err) })
+    );
+  }
+}
+
+/**
+ * Refresh OAuth access tokens that expire in the next 24 hours, using each
+ * provider's `refresh()` hook. Silent for providers without a refresh flow
+ * (Shopify) or without a stored refresh token.
+ */
+async function rotateExpiringTokens() {
+  const rows = await listExpiringConnections(24);
+  for (const row of rows) {
+    const provider = getProvider(row.provider);
+    if (!provider?.refresh || !row.refreshTokenCiphertext) continue;
+    try {
+      const refresh = decryptToken(row.refreshTokenCiphertext, row.tokenIv);
+      const result = await provider.refresh(refresh);
+      if (!result) continue;
+      await saveConnection({
+        userId: row.userId,
+        provider: row.provider,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken ?? refresh,
+        scopes: result.scopes,
+        expiresAt: result.expiresInSeconds
+          ? new Date(Date.now() + result.expiresInSeconds * 1000)
+          : undefined,
+        accountId: row.accountId ?? undefined,
+        accountName: row.accountName ?? undefined,
+      });
+      logger.info("refreshed provider token", {
+        userId: row.userId,
+        provider: row.provider,
+      });
+    } catch (err) {
+      logger.warn("token refresh failed", {
+        userId: row.userId,
+        provider: row.provider,
+        err: String(err),
+      });
+    }
   }
 }
 

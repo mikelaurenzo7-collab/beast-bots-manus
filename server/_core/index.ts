@@ -3,6 +3,7 @@ import express from "express";
 import { createServer } from "http";
 import { ENV } from "./env";
 import { authRouter } from "../api/auth";
+import { billingRouter } from "../api/billing";
 import { bossRouter } from "../api/boss";
 import { connectionsRouter } from "../api/connections";
 import { oauthRouter } from "../api/oauth";
@@ -10,6 +11,7 @@ import { recipesRouter } from "../api/recipes";
 import { runsRouter } from "../api/runs";
 import { notesRouter } from "../api/notes";
 import { devicesRouter } from "../api/devices";
+import { webhooksRouter } from "../api/webhooks";
 import { errorHandler } from "./errors";
 import { requestAuth } from "./middleware";
 import { rateLimit } from "./rateLimit";
@@ -26,29 +28,35 @@ async function main() {
 
   app.use(cors);
   app.use(securityHeaders);
+
+  // Webhook endpoints must see the raw request body for HMAC/signature
+  // verification. They are mounted BEFORE express.json() so the raw bytes
+  // survive — the routes use their own raw() parser.
+  app.use(
+    "/v1/webhooks",
+    rateLimit({ windowMs: 60_000, max: 600 }),
+    webhooksRouter
+  );
+
   app.use(express.json({ limit: "1mb" }));
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true, service: "bot-boss", time: new Date().toISOString() });
   });
 
-  // Tight limits on auth endpoints to blunt credential-stuffing.
   app.use("/v1/auth", rateLimit({ windowMs: 60_000, max: 20 }));
   app.use("/v1/auth", authRouter);
 
-  // OAuth routes — `/start` endpoints require auth (handled in router);
-  // `/callback` endpoints are public (keyed by state).
   app.use(
     "/v1/oauth",
     rateLimit({ windowMs: 60_000, max: 60 }),
     oauthRouter
   );
 
-  // Everything else requires a session bearer.
   app.use("/v1", requestAuth);
-  // Broad per-IP bucket for authenticated routes to curb abuse.
   app.use("/v1", rateLimit({ windowMs: 60_000, max: 240 }));
   app.use("/v1/boss", bossRouter);
+  app.use("/v1/billing", billingRouter);
   app.use("/v1/connections", connectionsRouter);
   app.use("/v1/recipes", recipesRouter);
   app.use("/v1/runs", runsRouter);

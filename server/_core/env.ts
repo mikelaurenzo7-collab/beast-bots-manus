@@ -61,4 +61,16 @@ export const ENV = {
   // Run quotas. Enforced in server/api/boss.ts.
   dailyRunQuotaFree: parseInt(process.env.DAILY_RUN_QUOTA_FREE ?? "50", 10),
   dailyRunQuotaPro: parseInt(process.env.DAILY_RUN_QUOTA_PRO ?? "2500", 10),
+
+  // Stripe billing (web subscriptions).
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+  stripePriceProMonthly: process.env.STRIPE_PRICE_PRO_MONTHLY ?? "",
+  stripePriceProYearly: process.env.STRIPE_PRICE_PRO_YEARLY ?? "",
+
+  // Where Stripe should bounce the user back after checkout/portal.
+  stripeSuccessUrl:
+    process.env.STRIPE_SUCCESS_URL ?? "https://app.botboss.app/settings?billing=success",
+  stripeCancelUrl:
+    process.env.STRIPE_CANCEL_URL ?? "https://app.botboss.app/settings?billing=cancel",
 };

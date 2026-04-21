@@ -36,6 +36,14 @@ export type IdentifyResult = {
   accountName?: string;
 };
 
+export type PostConnectContext = {
+  userId: number;
+  accessToken: string;
+  accountId?: string;
+  shop?: string;
+  publicBaseUrl: string;
+};
+
 export type ProviderConfig = {
   id: string;
   label: string;
@@ -53,6 +61,16 @@ export type ProviderConfig = {
   exchangeToken: (p: TokenExchangeParams) => Promise<TokenExchangeResult>;
   /** Optionally resolves account id / display name after token exchange. */
   identify?: (token: string, p: TokenExchangeParams) => Promise<IdentifyResult>;
+  /**
+   * Called after a successful connect. Use this to register webhooks or
+   * pre-warm caches. Errors here are logged, not fatal.
+   */
+  postConnect?: (ctx: PostConnectContext) => Promise<void>;
+  /**
+   * Refresh the access token using a stored refresh_token. Return undefined
+   * when the provider has no refresh flow (e.g. Shopify permanent tokens).
+   */
+  refresh?: (refreshToken: string) => Promise<TokenExchangeResult | undefined>;
 };
 
 import { shopifyProvider } from "./shopify";

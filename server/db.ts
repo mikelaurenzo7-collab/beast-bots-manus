@@ -8,9 +8,12 @@ import {
   oauthState,
   recipes,
   runs,
+  subscriptions,
   users,
+  webhookEvents,
   type InsertUser,
   type Run,
+  type Subscription,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { decryptToken, encryptToken } from "./_core/crypto";
@@ -424,4 +427,107 @@ export async function listDeviceTokens(userId: number) {
     .select()
     .from(deviceTokens)
     .where(eq(deviceTokens.userId, userId));
+}
+
+// ─── Subscriptions ────────────────────────────────────────────────────────────
+
+export async function getSubscription(userId: number) {
+  const [row] = await getDb()
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, userId))
+    .limit(1);
+  return row;
+}
+
+export async function upsertSubscription(params: {
+  userId: number;
+  plan: Subscription["plan"];
+  status: Subscription["status"];
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  currentPeriodEnd?: Date;
+  cancelAtPeriodEnd?: boolean;
+}) {
+  const db = getDb();
+  const existing = await getSubscription(params.userId);
+  if (existing) {
+    await db
+      .update(subscriptions)
+      .set({
+        plan: params.plan,
+        status: params.status,
+        stripeCustomerId: params.stripeCustomerId ?? existing.stripeCustomerId,
+        stripeSubscriptionId:
+          params.stripeSubscriptionId ?? existing.stripeSubscriptionId,
+        currentPeriodEnd: params.currentPeriodEnd ?? existing.currentPeriodEnd,
+        cancelAtPeriodEnd: params.cancelAtPeriodEnd ?? existing.cancelAtPeriodEnd,
+      })
+      .where(eq(subscriptions.id, existing.id));
+  } else {
+    await db.insert(subscriptions).values(params);
+  }
+}
+
+export async function getSubscriptionByStripeCustomer(customerId: string) {
+  const [row] = await getDb()
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.stripeCustomerId, customerId))
+    .limit(1);
+  return row;
+}
+
+// ─── Webhook dedup ───────────────────────────────────────────────────────────
+
+/**
+ * Record a webhook event. Returns `true` if this is the first time we've
+ * seen (provider, externalId); `false` if we're processing a duplicate.
+ * Duplicate-safe thanks to the UNIQUE index.
+ */
+export async function recordWebhook(params: {
+  provider: string;
+  externalId: string;
+  topic: string;
+  userId?: number;
+  payload?: unknown;
+}): Promise<boolean> {
+  try {
+    await getDb().insert(webhookEvents).values({
+      provider: params.provider,
+      externalId: params.externalId,
+      topic: params.topic,
+      userId: params.userId ?? null,
+      payload: params.payload as Record<string, unknown>,
+    });
+    return true;
+  } catch {
+    // Duplicate key → already processed.
+    return false;
+  }
+}
+
+/** List OAuth connections whose access token expires within `hours` hours. */
+export async function listExpiringConnections(hours: number) {
+  const cutoff = new Date(Date.now() + hours * 3_600_000);
+  const { lt } = await import("drizzle-orm");
+  return getDb()
+    .select()
+    .from(oauthConnections)
+    .where(lt(oauthConnections.expiresAt, cutoff));
+}
+
+/** Return a user's id from their Shopify shop domain (myshopify.com host). */
+export async function findUserByShopifyShop(shop: string): Promise<number | null> {
+  const [row] = await getDb()
+    .select({ userId: oauthConnections.userId })
+    .from(oauthConnections)
+    .where(
+      and(
+        eq(oauthConnections.provider, "shopify"),
+        eq(oauthConnections.accountId, shop)
+      )
+    )
+    .limit(1);
+  return row?.userId ?? null;
 }

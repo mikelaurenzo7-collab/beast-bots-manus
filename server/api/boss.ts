@@ -8,6 +8,7 @@ import {
   createRun,
   finishRun,
   getRecipe,
+  getSubscription,
   loadChat,
 } from "../db";
 import { HttpError, requireUserId } from "../_core/middleware";
@@ -37,13 +38,20 @@ bossRouter.post("/run", async (req, res, next) => {
     const userId = requireUserId(req);
     const body = runSchema.parse(req.body);
 
-    // Daily quota gate. Free tier for now; swap when Pro billing lands.
-    const used = await countRunsToday(userId);
-    const limit = ENV.dailyRunQuotaFree;
+    // Daily quota gate — Pro subscribers get the higher cap.
+    const [used, sub] = await Promise.all([
+      countRunsToday(userId),
+      getSubscription(userId),
+    ]);
+    const isPro =
+      sub?.plan === "pro" && (sub.status === "active" || sub.status === "trialing");
+    const limit = isPro ? ENV.dailyRunQuotaPro : ENV.dailyRunQuotaFree;
     if (used >= limit) {
       throw new HttpError(
         429,
-        `Daily run limit reached (${limit}). Upgrade to Pro for more.`
+        isPro
+          ? `Daily run limit reached (${limit}).`
+          : `Daily run limit reached (${limit}). Upgrade to Pro for ${ENV.dailyRunQuotaPro}/day.`
       );
     }
 
@@ -184,12 +192,21 @@ bossRouter.get("/catalog", async (_req, res) => {
   });
 });
 
-/** GET /v1/boss/quota  → today's usage, for the web header display. */
+/** GET /v1/boss/quota  → today's usage + plan-aware limit. */
 bossRouter.get("/quota", async (req, res, next) => {
   try {
     const userId = requireUserId(req);
-    const used = await countRunsToday(userId);
-    res.json({ used, limit: ENV.dailyRunQuotaFree });
+    const [used, sub] = await Promise.all([
+      countRunsToday(userId),
+      getSubscription(userId),
+    ]);
+    const isPro =
+      sub?.plan === "pro" && (sub.status === "active" || sub.status === "trialing");
+    res.json({
+      used,
+      limit: isPro ? ENV.dailyRunQuotaPro : ENV.dailyRunQuotaFree,
+      plan: sub?.plan ?? "free",
+    });
   } catch (err) {
     next(err);
   }

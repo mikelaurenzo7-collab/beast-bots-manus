@@ -79,4 +79,28 @@ export const etsyProvider: ProviderConfig = {
       accountName: data.login_name,
     };
   },
+
+  async refresh(refreshToken) {
+    const body = new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: ENV.etsyKeystring,
+      refresh_token: refreshToken,
+    });
+    const res = await fetch("https://api.etsy.com/v3/public/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    if (!res.ok) throw new Error(`Etsy refresh ${res.status}: ${await res.text()}`);
+    const data = (await res.json()) as {
+      access_token: string;
+      refresh_token?: string;
+      expires_in?: number;
+    };
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token ?? refreshToken,
+      expiresInSeconds: data.expires_in,
+    };
+  },
 };
