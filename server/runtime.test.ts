@@ -78,6 +78,28 @@ describe("tool registry", () => {
     expect(names).toContain("notion.append_block");
   });
 
+  it("registers the extended provider set (google, linear, figma, linkedin, hubspot, discord)", () => {
+    const names = new Set(listToolNames());
+    for (const expected of [
+      "google.gmail_list",
+      "google.gmail_send",
+      "google.calendar_list",
+      "google.calendar_create_event",
+      "linear.list_issues",
+      "linear.create_issue",
+      "figma.list_projects",
+      "figma.get_file",
+      "linkedin.profile",
+      "linkedin.share_post",
+      "hubspot.list_contacts",
+      "hubspot.create_contact",
+      "discord.list_guilds",
+      "discord.get_me",
+    ]) {
+      expect(names.has(expected), `missing tool ${expected}`).toBe(true);
+    }
+  });
+
   it("getToolsForBeast filters by connected providers", () => {
     const tools = getToolsForBeast(
       ["github.list_repos", "slack.send_message"],
@@ -254,6 +276,320 @@ describe("notion tools", () => {
     expect(res.ok).toBe(true);
     expect(res.summary).toContain("page123");
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe("google tools", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("gmail_list queries with q and fetches metadata headers", async () => {
+    const calls = mockFetch((url) => {
+      if (url.includes("/messages?")) {
+        expect(url).toContain("q=is%3Aunread");
+        expect(url).toContain("maxResults=2");
+        return { body: { messages: [{ id: "m1", threadId: "t1" }, { id: "m2", threadId: "t2" }] } };
+      }
+      expect(url).toContain("format=metadata");
+      const id = url.match(/messages\/(m\d)/)?.[1] ?? "?";
+      return {
+        body: {
+          id,
+          snippet: `snippet-${id}`,
+          payload: {
+            headers: [
+              { name: "From", value: `user-${id}@example.com` },
+              { name: "Subject", value: `Subject ${id}` },
+              { name: "Date", value: "Mon, 21 Apr 2026 00:00:00 +0000" },
+            ],
+          },
+        },
+      };
+    });
+    const tool = getTool("google.gmail_list")!;
+    const res = await tool.run({ userId: 1, token: "ya29.test", input: { limit: 2 } });
+    expect(res.ok).toBe(true);
+    expect(res.summary).toContain("Subject m1");
+    const headers = (calls[0].init?.headers ?? {}) as Record<string, string>;
+    expect(headers.authorization).toBe("Bearer ya29.test");
+  });
+
+  it("gmail_send posts a base64url RFC822 payload", async () => {
+    const calls = mockFetch((url, init) => {
+      expect(url).toContain("/messages/send");
+      expect(init?.method).toBe("POST");
+      const body = JSON.parse(init?.body as string) as { raw: string };
+      const decoded = Buffer.from(body.raw, "base64url").toString("utf8");
+      expect(decoded).toContain("To: friend@example.com");
+      expect(decoded).toContain("Subject: Hi");
+      expect(decoded).toContain("hello world");
+      return { body: { id: "msg-1", threadId: "thr-1" } };
+    });
+    const tool = getTool("google.gmail_send")!;
+    const res = await tool.run({
+      userId: 1,
+      token: "ya29.test",
+      input: { to: "friend@example.com", subject: "Hi", body: "hello world" },
+    });
+    expect(res.ok).toBe(true);
+    expect(res.summary).toContain("friend@example.com");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("calendar_list hits v3 events with timeMin/timeMax and orderBy", async () => {
+    const calls = mockFetch((url) => {
+      expect(url).toContain("/calendars/primary/events");
+      expect(url).toContain("orderBy=startTime");
+      expect(url).toContain("singleEvents=true");
+      return {
+        body: {
+          items: [
+            { id: "e1", summary: "Standup", start: { dateTime: "2026-04-22T09:00:00Z" }, end: { dateTime: "2026-04-22T09:15:00Z" } },
+          ],
+        },
+      };
+    });
+    const tool = getTool("google.calendar_list")!;
+    const res = await tool.run({ userId: 1, token: "ya29", input: {} });
+    expect(res.ok).toBe(true);
+    expect(res.summary).toContain("Standup");
+    expect(calls).toHaveLength(1);
+  });
+});
+
+describe("linear tools", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("list_issues posts a GraphQL query and maps node fields", async () => {
+    const calls = mockFetch((url, init) => {
+      expect(url).toBe("https://api.linear.app/graphql");
+      expect(init?.method).toBe("POST");
+      const body = JSON.parse(init?.body as string) as { query: string; variables: Record<string, unknown> };
+      expect(body.query).toContain("issues(");
+      expect(body.variables.first).toBe(5);
+      expect(body.variables.teamKey).toBe("ENG");
+      return {
+        body: {
+          data: {
+            issues: {
+              nodes: [
+                {
+                  id: "i1",
+                  identifier: "ENG-1",
+                  title: "Fix bug",
+                  state: { name: "In Progress", type: "started" },
+                  assignee: { name: "Alice" },
+                  url: "https://linear.app/x/ENG-1",
+                },
+              ],
+            },
+          },
+        },
+      };
+    });
+    const tool = getTool("linear.list_issues")!;
+    const res = await tool.run({ userId: 1, token: "lin_api_test", input: { teamKey: "ENG", limit: 5 } });
+    expect(res.ok).toBe(true);
+    expect(res.summary).toContain("ENG-1");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("create_issue first looks up the team and then issueCreates", async () => {
+    let phase = 0;
+    mockFetch((_url, init) => {
+      const body = JSON.parse(init?.body as string) as { query: string };
+      phase += 1;
+      if (phase === 1) {
+        expect(body.query).toContain("teams(");
+        return { body: { data: { teams: { nodes: [{ id: "team_123" }] } } } };
+      }
+      expect(body.query).toContain("issueCreate");
+      return {
+        body: {
+          data: {
+            issueCreate: {
+              success: true,
+              issue: { id: "i1", identifier: "ENG-42", url: "https://linear.app/x/ENG-42", title: "New" },
+            },
+          },
+        },
+      };
+    });
+    const tool = getTool("linear.create_issue")!;
+    const res = await tool.run({
+      userId: 1,
+      token: "lin_api_test",
+      input: { teamKey: "ENG", title: "New" },
+    });
+    expect(res.ok).toBe(true);
+    expect(res.summary).toContain("ENG-42");
+    expect(phase).toBe(2);
+  });
+
+  it("surfaces GraphQL errors", async () => {
+    mockFetch(() => ({ body: { errors: [{ message: "not authorized" }] } }));
+    const tool = getTool("linear.list_issues")!;
+    const res = await tool.run({ userId: 1, token: "bad", input: {} });
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain("not authorized");
+  });
+});
+
+describe("figma tools", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("get_file summarizes pages from the document tree", async () => {
+    mockFetch((url) => {
+      expect(url).toContain("/files/abc123");
+      expect(url).toContain("depth=1");
+      return {
+        body: {
+          name: "Design System",
+          lastModified: "2026-04-01T00:00:00Z",
+          document: { children: [{ name: "Cover", type: "CANVAS" }, { name: "Tokens", type: "CANVAS" }] },
+        },
+      };
+    });
+    const tool = getTool("figma.get_file")!;
+    const res = await tool.run({ userId: 1, token: "figd_test", input: { fileKey: "abc123" } });
+    expect(res.ok).toBe(true);
+    expect(res.summary).toContain("Design System");
+    expect(res.summary).toContain("2 pages");
+  });
+});
+
+describe("linkedin tools", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("share_post derives urn from userinfo then posts ugcPosts", async () => {
+    const calls: string[] = [];
+    mockFetch((url, init) => {
+      calls.push(url);
+      if (url.endsWith("/v2/userinfo")) {
+        return { body: { sub: "user-xyz", name: "Alice" } };
+      }
+      expect(url).toContain("/v2/ugcPosts");
+      expect(init?.method).toBe("POST");
+      const body = JSON.parse(init?.body as string) as { author: string; visibility: Record<string, string> };
+      expect(body.author).toBe("urn:li:person:user-xyz");
+      expect(body.visibility["com.linkedin.ugc.MemberNetworkVisibility"]).toBe("PUBLIC");
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      expect(headers["x-restli-protocol-version"]).toBe("2.0.0");
+      return { body: { id: "urn:li:share:1" } };
+    });
+    const tool = getTool("linkedin.share_post")!;
+    const res = await tool.run({ userId: 1, token: "li_test", input: { text: "hello world" } });
+    expect(res.ok).toBe(true);
+    expect(res.summary).toContain("urn:li:share:1");
+    expect(calls).toHaveLength(2);
+  });
+});
+
+describe("hubspot tools", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("list_contacts pulls email/firstname/lastname/company properties", async () => {
+    mockFetch((url) => {
+      expect(url).toContain("/crm/v3/objects/contacts");
+      expect(url).toContain("properties=email,firstname,lastname,company");
+      return {
+        body: {
+          results: [
+            { id: "c1", properties: { email: "a@x.com", firstname: "Ada", lastname: "Lovelace", company: "Analytics" } },
+          ],
+        },
+      };
+    });
+    const tool = getTool("hubspot.list_contacts")!;
+    const res = await tool.run({ userId: 1, token: "pat-test", input: {} });
+    expect(res.ok).toBe(true);
+    expect(res.summary).toContain("a@x.com");
+  });
+
+  it("create_contact posts properties payload", async () => {
+    mockFetch((url, init) => {
+      expect(url).toContain("/crm/v3/objects/contacts");
+      expect(init?.method).toBe("POST");
+      const body = JSON.parse(init?.body as string) as { properties: Record<string, string> };
+      expect(body.properties.email).toBe("new@x.com");
+      expect(body.properties.firstname).toBe("New");
+      return { body: { id: "99", properties: body.properties } };
+    });
+    const tool = getTool("hubspot.create_contact")!;
+    const res = await tool.run({
+      userId: 1,
+      token: "pat-test",
+      input: { email: "new@x.com", firstname: "New" },
+    });
+    expect(res.ok).toBe(true);
+    expect(res.summary).toContain("99");
+    expect(res.summary).toContain("new@x.com");
+  });
+});
+
+describe("discord tools", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("list_guilds uses bearer auth and summarizes server names", async () => {
+    mockFetch((url, init) => {
+      expect(url).toContain("/users/@me/guilds");
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      expect(headers.authorization).toBe("Bearer disc_test");
+      return {
+        body: [
+          { id: "g1", name: "Alpha", owner: true },
+          { id: "g2", name: "Beta", owner: false },
+        ],
+      };
+    });
+    const tool = getTool("discord.list_guilds")!;
+    const res = await tool.run({ userId: 1, token: "disc_test", input: {} });
+    expect(res.ok).toBe(true);
+    expect(res.summary).toContain("Alpha");
+    expect(res.summary).toContain("Beta");
+  });
+});
+
+// ─── Provider registry + credential resolution ────────────────────────────────
+
+describe("provider registry", () => {
+  const ORIG_ENV = { ...process.env };
+  afterEach(() => {
+    process.env = { ...ORIG_ENV };
+  });
+
+  it("resolves credentials from standard env vars and disables when missing", async () => {
+    const { getProviderConfig, getProviderCredentials, listEnabledProviderIds } = await import(
+      "./_core/providers"
+    );
+    // Clear anything that might leak from the outer env
+    delete process.env.GITHUB_CLIENT_ID;
+    delete process.env.GITHUB_CLIENT_SECRET;
+    const github = getProviderConfig("github")!;
+    expect(getProviderCredentials(github)).toBeNull();
+
+    process.env.GITHUB_CLIENT_ID = "gh_id";
+    process.env.GITHUB_CLIENT_SECRET = "gh_secret";
+    expect(getProviderCredentials(github)).toEqual({ clientId: "gh_id", clientSecret: "gh_secret" });
+    expect(listEnabledProviderIds()).toContain("github");
+  });
+
+  it("includes all wired providers in the registry", async () => {
+    const { listProviders } = await import("./_core/providers");
+    const ids = new Set(listProviders().map((p) => p.id));
+    for (const expected of [
+      "github",
+      "google",
+      "slack",
+      "notion",
+      "linear",
+      "discord",
+      "figma",
+      "linkedin",
+      "microsoft",
+      "hubspot",
+    ]) {
+      expect(ids.has(expected), `missing provider ${expected}`).toBe(true);
+    }
   });
 });
 

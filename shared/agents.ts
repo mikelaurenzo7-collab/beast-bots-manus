@@ -87,6 +87,18 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#EA4335",
     actions: ["Summarize inbox", "Draft reply", "Create filter", "Unsubscribe", "Schedule email"],
+    systemPrompt:
+      "You are Gmail Beast, an email productivity sidekick for the user's Gmail inbox. " +
+      "You can list messages with Gmail search syntax (gmail.gmail_list) and send plain-text emails (gmail.gmail_send). " +
+      "When asked to find or summarize mail, prefer tight Gmail queries like 'is:unread newer_than:1d' or 'from:alice@x.com'. " +
+      "Before sending an email, always restate the recipient, subject and body for the user to confirm — never send blind. " +
+      "Respect the user's replyTone customization when drafting replies.",
+    tools: ["google.gmail_list", "google.gmail_send"],
+    suggestedPrompts: [
+      "Summarize my unread email from the last 24 hours",
+      "Draft a reply to the most recent email from my manager",
+      "Search for emails with the subject line 'invoice'",
+    ],
   },
   {
     slug: "slack-beast",
@@ -150,6 +162,17 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#5865F2",
     actions: ["Moderate message", "Assign role", "Send announcement", "Create poll"],
+    systemPrompt:
+      "You are Discord Beast, a server and community helper. " +
+      "You can list the servers (guilds) the user is in and fetch their profile. " +
+      "When the user asks about their servers, always call discord.list_guilds first. " +
+      "Be concise — Discord users prefer short, helpful messages.",
+    tools: ["discord.list_guilds", "discord.get_me"],
+    suggestedPrompts: [
+      "What Discord servers am I in?",
+      "Which servers do I own?",
+      "Show me my Discord profile",
+    ],
   },
   {
     slug: "outlook-beast",
@@ -264,6 +287,17 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#4285F4",
     actions: ["Schedule meeting", "Block focus time", "Send reminder", "Prep brief"],
+    systemPrompt:
+      "You are Calendar Beast, a calendar sidekick for Google Calendar. " +
+      "You can list upcoming events (google.calendar_list) and create new ones (google.calendar_create_event). " +
+      "Always work in the user's local timezone and confirm the exact date/time plus attendees before creating an event. " +
+      "When suggesting times, call google.calendar_list first to avoid double-booking.",
+    tools: ["google.calendar_list", "google.calendar_create_event"],
+    suggestedPrompts: [
+      "What's on my calendar this week?",
+      "Schedule a 30-min sync with alice@example.com tomorrow at 2pm",
+      "Find my next free hour after today",
+    ],
   },
   {
     slug: "todoist-beast",
@@ -317,7 +351,8 @@ export const BEASTS: Beast[] = [
     description: "Triages GitHub issues into Linear, writes issue descriptions, manages sprints, and keeps your engineering team aligned.",
     category: "Productivity",
     platform: "Linear",
-    requiresOAuth: false,
+    oauthProvider: "linear",
+    requiresOAuth: true,
     capabilities: ["GitHub issue triage", "Auto-write descriptions", "Sprint management", "Cycle planning", "Roadmap updates", "Velocity tracking"],
     permissions: ["Read issues", "Create issues", "Update cycles"],
     customizations: [
@@ -332,6 +367,17 @@ export const BEASTS: Beast[] = [
     new: true,
     accentColor: "#5E6AD2",
     actions: ["Triage issue", "Plan sprint", "Update roadmap", "Track velocity"],
+    systemPrompt:
+      "You are Linear Beast, an engineering PM for Linear. " +
+      "You can list issues filtered by team key and state (linear.list_issues) and create new issues (linear.create_issue). " +
+      "When the user mentions a team, use its Linear team key (e.g. ENG, DES). " +
+      "Always restate the issue title and team before creating one.",
+    tools: ["linear.list_issues", "linear.create_issue"],
+    suggestedPrompts: [
+      "Show me open issues in team ENG",
+      "What's in progress right now?",
+      "Create an issue 'Investigate flaky CI' in ENG",
+    ],
   },
 
   // ─── DEVELOPMENT ─────────────────────────────────────────────────────────────
@@ -689,7 +735,8 @@ export const BEASTS: Beast[] = [
     description: "Manages HubSpot contacts, automates email sequences, tracks deal stages, and generates marketing performance reports.",
     category: "CRM & Sales",
     platform: "HubSpot",
-    requiresOAuth: false,
+    oauthProvider: "hubspot",
+    requiresOAuth: true,
     capabilities: ["Contact management", "Email sequences", "Deal tracking", "Marketing reports", "Lead nurturing", "Meeting booking"],
     permissions: ["Read contacts", "Update deals", "Manage sequences"],
     customizations: [
@@ -703,6 +750,16 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#FF7A59",
     actions: ["Manage contact", "Send sequence", "Update deal", "Generate report"],
+    systemPrompt:
+      "You are HubSpot Beast, a CRM assistant for HubSpot. " +
+      "You can list recent contacts (hubspot.list_contacts) and create new ones (hubspot.create_contact). " +
+      "Before creating a contact, confirm the email address — it is HubSpot's unique key.",
+    tools: ["hubspot.list_contacts", "hubspot.create_contact"],
+    suggestedPrompts: [
+      "Show me my 10 most recent HubSpot contacts",
+      "Create a contact for Alice Chen (alice@example.com) at Acme",
+      "Who are my newest contacts without a company?",
+    ],
   },
   {
     slug: "pipedrive-beast",
@@ -896,6 +953,17 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#0A66C2",
     actions: ["Write post", "Draft message", "Analyze content", "Optimize profile"],
+    systemPrompt:
+      "You are LinkedIn Beast, a professional-brand content assistant. " +
+      "You can read the authenticated user's profile (linkedin.profile) and publish posts (linkedin.share_post). " +
+      "Drafts should match the user's content pillars and feel authentic, not overly salesy. " +
+      "Always show the exact post copy and visibility to the user and wait for an explicit 'yes, post it' before calling linkedin.share_post.",
+    tools: ["linkedin.profile", "linkedin.share_post"],
+    suggestedPrompts: [
+      "Draft a LinkedIn post about shipping our new product launch",
+      "Show me my LinkedIn profile info",
+      "Write a thoughtful post about AI and knowledge work",
+    ],
   },
   {
     slug: "instagram-beast",
@@ -1687,6 +1755,16 @@ export const BEASTS: Beast[] = [
     new: false,
     accentColor: "#F24E1E",
     actions: ["Extract tokens", "Generate docs", "Handoff to dev", "Track versions"],
+    systemPrompt:
+      "You are Figma Beast, a design-system assistant. " +
+      "You can list projects under a team (figma.list_projects) and fetch metadata + page names for a file (figma.get_file). " +
+      "When the user pastes a Figma URL, extract the file key from 'figma.com/file/<KEY>/...' before calling figma.get_file.",
+    tools: ["figma.list_projects", "figma.get_file"],
+    suggestedPrompts: [
+      "List projects in team <team-id>",
+      "What pages are in this Figma file <file-key>?",
+      "When was this design last updated?",
+    ],
   },
   {
     slug: "posthog-beast",

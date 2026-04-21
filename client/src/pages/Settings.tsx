@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import NavBar from "../components/NavBar";
 import { toast } from "sonner";
-import { Check, ExternalLink, Link2, Link2Off, Loader2, Shield, User, Bell } from "lucide-react";
+import { Check, Link2, Loader2, Shield, User, Bell, AlertCircle } from "lucide-react";
 
 // OAuth providers with their real connect URLs
 const OAUTH_PROVIDERS = [
@@ -70,18 +70,46 @@ export default function Settings() {
   });
 
   const [connectingProvider, setConnectingProvider] = useState<string | null>(null);
+  const [enabledProviders, setEnabledProviders] = useState<Set<string>>(new Set());
+
+  // Fetch which providers are actually configured on this deployment so we can
+  // disable buttons that would only land in a "not_configured" error page.
+  useEffect(() => {
+    fetch("/api/connect/providers")
+      .then((r) => (r.ok ? r.json() : { providers: [] }))
+      .then((data: { providers: { id: string; enabled: boolean }[] }) => {
+        setEnabledProviders(new Set(data.providers.filter((p) => p.enabled).map((p) => p.id)));
+      })
+      .catch(() => {
+        // Network error — leave the set empty; the server will handle the real check.
+      });
+  }, []);
+
+  // Surface redirect-back success/failure from the OAuth round-trip.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("connected");
+    const connectError = params.get("connect_error");
+    const reason = params.get("reason");
+    if (connected) {
+      toast.success(`${connected} connected!`);
+      connectionsQuery.refetch();
+      // Clean the querystring so refreshing doesn't re-toast.
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (connectError) {
+      toast.error(`${connectError} connection failed${reason ? `: ${decodeURIComponent(reason)}` : ""}`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    // connectionsQuery.refetch identity is stable; safe to omit from deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleConnect = (providerId: string) => {
     setConnectingProvider(providerId);
-    // Build the OAuth URL for providers that support it
-    const oauthUrls: Record<string, string> = {
-      google: `https://accounts.google.com/o/oauth2/v2/auth?client_id=YOUR_CLIENT_ID&redirect_uri=${encodeURIComponent(window.location.origin + '/oauth/callback')}&response_type=code&scope=email+profile&state=${providerId}`,
-      github: `https://github.com/login/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=${encodeURIComponent(window.location.origin + '/oauth/callback')}&scope=repo+user&state=${providerId}`,
-      slack: `https://slack.com/oauth/v2/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=${encodeURIComponent(window.location.origin + '/oauth/callback')}&scope=channels:read,chat:write&state=${providerId}`,
-    };
-    // For now, show a toast with instructions — real OAuth requires server-side client IDs
-    toast.info(`To connect ${providerId}, add your OAuth credentials in Settings > Security`, { duration: 4000 });
-    setConnectingProvider(null);
+    // Kick off the real OAuth authorization code flow. The server redirects
+    // back to /settings?connected=<provider> (or ?connect_error=<provider>).
+    const returnTo = encodeURIComponent("/settings");
+    window.location.href = `/api/connect/${providerId}/start?return_to=${returnTo}`;
   };
 
   if (loading) {
@@ -169,13 +197,14 @@ export default function Settings() {
                     const isConnected = connectedProviders.has(provider.id);
                     const isConnecting = connectingProvider === provider.id;
                     const isDisconnecting = disconnectMutation.isPending && disconnectMutation.variables?.provider === provider.id;
+                    const isEnabled = enabledProviders.size === 0 || enabledProviders.has(provider.id);
 
                     return (
                       <div
                         key={provider.id}
                         className={`pop-card bg-card rounded-xl p-4 flex items-center gap-3 ${
                           isConnected ? "border-[#2D9E5A]/40" : ""
-                        }`}
+                        } ${!isEnabled && !isConnected ? "opacity-60" : ""}`}
                       >
                         <div
                           className="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0 border-2 border-border"
@@ -186,20 +215,33 @@ export default function Settings() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-foreground">{provider.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{provider.description}</p>
+                          {!isEnabled && !isConnected && (
+                            <p className="text-[10px] text-muted-foreground/80 mt-0.5 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              Not configured on this deployment
+                            </p>
+                          )}
                         </div>
                         <button
                           onClick={() => {
                             if (isConnected) {
                               disconnectMutation.mutate({ provider: provider.id });
-                            } else {
+                            } else if (isEnabled) {
                               handleConnect(provider.id);
+                            } else {
+                              toast.info(
+                                `Set ${provider.id.toUpperCase()}_CLIENT_ID and ${provider.id.toUpperCase()}_CLIENT_SECRET env vars to enable.`,
+                                { duration: 5000 }
+                              );
                             }
                           }}
                           disabled={isConnecting || isDisconnecting}
                           className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all ${
                             isConnected
                               ? "border-[#2D9E5A]/50 text-[#2D9E5A] hover:border-destructive hover:text-destructive hover:bg-destructive/10"
-                              : "border-border text-foreground hover:bg-secondary"
+                              : isEnabled
+                                ? "border-border text-foreground hover:bg-secondary"
+                                : "border-border/50 text-muted-foreground hover:bg-secondary/50"
                           }`}
                         >
                           {isConnecting || isDisconnecting ? (
